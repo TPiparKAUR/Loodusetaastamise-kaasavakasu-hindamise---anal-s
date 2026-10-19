@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import replace
@@ -189,6 +190,102 @@ def run_mixing(
     return pt, pl.DataFrame(cells), pl.DataFrame(notes)
 
 
+def distributions(
+    u: stats.Units, ids: list[str], blocks_dir: Path | None = None
+) -> tuple[pl.DataFrame, dict[str, dict[str, object]]]:
+    """Liida klasside histogrammid ökosüsteemi/alamökosüsteemi ja seisundi tasemele.
+
+    Parameters
+    ----------
+    u
+        Ühikud (``stats.make_units``).
+    ids
+        Kihtide id-d; kasutatakse neid, millel on histogrammi failid (``pipeline.write_hist``).
+    blocks_dir
+        Histogrammide kaust (vaikimisi ``config.BLOCKS``).
+
+    Returns
+    -------
+    tuple[pl.DataFrame, dict[str, dict[str, object]]]
+        Pikk tabel ``layer_id, unit_level, unit_code, state, bin, n`` (``bin == n_bins`` on täpsete
+        nullide arv) ja vahemike kirjeldused kihi kaupa.
+    """
+    bdir = blocks_dir or config.BLOCKS
+    n_cls = u.cls_eco.size
+    frames: list[pl.DataFrame] = []
+    specs: dict[str, dict[str, object]] = {}
+    for lid in ids:
+        pq, js = bdir / f"{lid}__hist.parquet", bdir / f"{lid}__hist.json"
+        if not (pq.exists() and js.exists()):
+            continue
+        specs[lid] = json.loads(js.read_text(encoding="utf-8"))
+        h = pl.read_parquet(pq).filter(pl.col("cls") < n_cls)
+        cls = h["cls"].to_numpy().astype(np.int64)
+        base = pl.DataFrame(
+            {
+                "bin": h["bin"].cast(pl.Int64),
+                "n": h["n"].cast(pl.Int64),
+                "state": u.cls_state[cls].astype(np.int64),
+                "eco": u.cls_eco[cls].astype(np.int64),
+                "alam": u.cls_alam[cls].astype(np.int64),
+            }
+        ).filter(pl.col("state") >= 0)
+        eco_map = dict(enumerate(u.eco_codes))
+        alam_map = dict(enumerate(u.alam_codes))
+        eco_part = (
+            base.group_by(["eco", "state", "bin"])
+            .agg(pl.col("n").sum())
+            .with_columns(
+                pl.lit("okosusteem").alias("unit_level"),
+                pl.col("eco").replace_strict(eco_map, return_dtype=pl.Int64).alias("unit_code"),
+            )
+            .drop("eco")
+        )
+        alam_part = (
+            base.filter(pl.col("alam") >= 0)
+            .group_by(["alam", "state", "bin"])
+            .agg(pl.col("n").sum())
+            .with_columns(
+                pl.lit("alam").alias("unit_level"),
+                pl.col("alam").replace_strict(alam_map, return_dtype=pl.Int64).alias("unit_code"),
+            )
+            .drop("alam")
+        )
+        part = pl.concat([eco_part, alam_part], how="diagonal_relaxed").with_columns(
+            pl.lit(lid).alias("layer_id"),
+            pl.col("state").replace_strict(dict(enumerate(stats.STATES)), return_dtype=pl.String),
+        )
+        frames.append(part.select("layer_id", "unit_level", "unit_code", "state", "bin", "n"))
+    return (pl.concat(frames) if frames else pl.DataFrame()), specs
+
+
+def check_distributions(
+    dist: pl.DataFrame, specs: dict[str, dict[str, object]], cells: pl.DataFrame
+) -> pl.DataFrame:
+    """Kontrolli, et jaotuse pikslite arv (ilma nullide lisaveeruta) võrdub plokitabeli arvuga.
+
+    Returns
+    -------
+    pl.DataFrame
+        Kõik lahknevad (kiht, üksus, seisund) read; tühi tabel tähendab täielikku kooskõla.
+    """
+    if dist.is_empty():
+        return pl.DataFrame()
+    nb = {k: int(v["n_bins"]) for k, v in specs.items()}  # type: ignore[call-overload]
+    d = dist.with_columns(pl.col("layer_id").replace_strict(nb, return_dtype=pl.Int64).alias("_nb")).filter(
+        pl.col("bin") < pl.col("_nb")
+    )
+    tot = d.group_by(["layer_id", "unit_level", "unit_code", "state"]).agg(pl.col("n").sum().alias("n_hist"))
+    j = tot.join(
+        cells.select(
+            "layer_id", "unit_level", "unit_code", "state", pl.col("n").cast(pl.Int64).alias("n_block")
+        ),
+        on=["layer_id", "unit_level", "unit_code", "state"],
+        how="left",
+    )
+    return j.filter(pl.col("n_block").is_null() | (pl.col("n_hist") != pl.col("n_block")))
+
+
 def run(
     params: stats.Params | None = None, only: set[str] | None = None, out_dir: Path | None = None
 ) -> dict[str, pl.DataFrame]:
@@ -259,6 +356,15 @@ def run(
         "klassid": pl.concat(cls_tabs) if cls_tabs else pl.DataFrame(),
         "diagnostika": pl.DataFrame(diag),
     }
+    dist, dspecs = distributions(u, [r["id"] for r in ev.iter_rows(named=True)])
+    if not dist.is_empty():
+        bad = check_distributions(dist, dspecs, res["lahtrid"])
+        if not bad.is_empty():
+            log.warning("jaotus ei ühti plokitabeliga %d real, nt %s", bad.height, bad.head(3).to_dicts())
+        res["jaotused"] = dist
+        (out_dir / "jaotuse_vahemikud.json").write_text(
+            json.dumps(dspecs, ensure_ascii=False), encoding="utf-8"
+        )
     if not res["paarid"].is_empty():
         res["paarid"] = add_fdr(res["paarid"], params.alpha)
     for k, v in res.items():

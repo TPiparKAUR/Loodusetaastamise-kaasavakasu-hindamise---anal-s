@@ -12,6 +12,8 @@
 | 930 m rastrid ja 1 km vektor (segumudel) | tehtud, **uuriv** |
 | Tundlikkus (klaster 5/20 km, min ala 0,25/4 ha, teine seeme) | tehtud, `docs/tulemused.md` § 6 |
 | Veebileht | tehtud, `site_src/`, ehitus `python -m oks site` |
+| Väärtuste jaotus seisundi kaupa (pikslitaseme histogrammid) | kood, testid ja veebivaated valmis; **andmete uuesti arvutus rastritest on pooleli** (kuni selle lõpuni näitab leht jaotuse asemel teadet) |
+| GitHub Pages töövoog | tehtud (vaikeharust); vajab Settings → Pages → Source: GitHub Actions |
 | Testid (sünteetilised andmed teadaoleva vastusega), Ruff, mypy | rohelised |
 
 ## Tuvastatud andmeprobleemid

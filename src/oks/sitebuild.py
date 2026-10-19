@@ -31,7 +31,8 @@ def build(out: Path, results: Path | None = None) -> Path:
     export.build_data(results, out / "data", results / "tundlikkus.csv")
     data = {
         n: json.loads((out / "data" / f"{n}.json").read_text(encoding="utf-8"))
-        for n in ("meta", "paarid", "lahtrid", "klassid")
+        for n in ("meta", "paarid", "lahtrid", "klassid", "jaotused")
+        if (out / "data" / f"{n}.json").exists()
     }
     html = (src / "index.html").read_text(encoding="utf-8")
     css = (src / "styles.css").read_text(encoding="utf-8")

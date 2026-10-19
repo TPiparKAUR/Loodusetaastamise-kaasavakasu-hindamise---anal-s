@@ -134,3 +134,5 @@ details.fwrap:not([open]) > summary::before { content: "▸ "; }
 details.fwrap:not([open]) > summary { margin-bottom: 0; }
 
 .csvbox { width: 100%; min-height: 8rem; font: 12px/1.4 ui-monospace, monospace; background: var(--surface); color: var(--ink); border: 1px solid var(--axis); border-radius: 6px; padding: 6px; }
+
+.card.wide { grid-column: 1 / -1; }

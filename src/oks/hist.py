@@ -136,7 +136,12 @@ def choose_spec(
         f = max(1, int(np.ceil(np.sqrt(ds.width * ds.height / max_pixels))))
         shape = (max(1, ds.height // f), max(1, ds.width // f))
         val = ds.read(1, out_shape=shape, resampling=Resampling.nearest)
-        ok = ds.read_masks(1, out_shape=shape, resampling=Resampling.nearest) > 0
+        # NoData väärtuste järgi, mitte read_masks()-iga: allavalimisel (out_shape) tuletab GDAL maski
+        # pyramiididest, mis ei lange kokku nearest-lugemisega.
+        ok = np.ones(shape, dtype=bool)
+        if ds.nodata is not None:
+            nd = np.asarray(ds.nodata).astype(val.dtype)
+            ok = ~np.isnan(val) if np.isnan(nd) else val != nd
         det = np.zeros(shape, dtype=np.uint16)
         reproject(
             source=rasterio.band(baas, 1),

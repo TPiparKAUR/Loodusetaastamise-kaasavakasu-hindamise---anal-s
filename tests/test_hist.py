@@ -107,3 +107,63 @@ def test_histogram_counts_match_block_table(tmp_path: Path, baas: Path, lut: np.
     # histogrammi koguarv klassis = ploki-tabeli pikslite arv klassis
     for c in (0, 1):
         assert counts[c, : spec.n_bins].sum() == df.filter(df["cls"] == c)["n"].cast(int).sum()
+
+
+def test_distributions_aggregate_to_units_and_match_cells(tmp_path: Path) -> None:
+    import json
+
+    import polars as pl
+
+    from oks import analysis, stats
+
+    used = pl.DataFrame(
+        [(0, 10110, 10100, 1, 1), (1, 10130, 10100, 1, 2), (2, 10141, 10100, 1, 3)],
+        schema=["idx", "kood", "alam_kood", "okosusteem_kood", "uld"],
+        orient="row",
+    ).with_columns(pl.col("idx").cast(pl.UInt32))
+    u = stats.make_units(used)
+    spec = hist.HistSpec("lut", values=(0.0, 1.0))  # n_bins = 3, nullide veerg = indeks 3
+    # klass 0 = hea, 1 = keskmine, 2 = vilets
+    h = pl.DataFrame(
+        {"cls": [0, 0, 1, 2, 2, 2], "bin": [0, 1, 1, 0, 1, 3], "n": [5, 7, 4, 2, 9, 2]},
+        schema={"cls": pl.Int16, "bin": pl.Int16, "n": pl.Int64},
+    )
+    h.write_parquet(tmp_path / "x__hist.parquet")
+    (tmp_path / "x__hist.json").write_text(json.dumps(spec.to_dict()))
+    dist, specs = analysis.distributions(u, ["x"], tmp_path)
+    eco = dist.filter(pl.col("unit_level") == "okosusteem")
+    vilets = eco.filter(pl.col("state") == "vilets").sort("bin")
+    assert vilets["bin"].to_list() == [0, 1, 3] and vilets["n"].to_list() == [2, 9, 2]
+    assert set(dist["unit_level"].unique()) == {"okosusteem", "alam"}
+    base = {
+        "layer_id": ["x"] * 3,
+        "state": ["hea", "keskmine", "vilets"],
+        "n": [12, 4, 11],
+    }  # nullid ei kuulu summasse
+    cells = pl.concat(
+        [
+            pl.DataFrame({**base, "unit_level": ["okosusteem"] * 3, "unit_code": [1] * 3}),
+            pl.DataFrame({**base, "unit_level": ["alam"] * 3, "unit_code": [10100] * 3}),
+        ]
+    )
+    assert analysis.check_distributions(dist, specs, cells).is_empty()
+    cells_bad = cells.with_columns(
+        pl.when(pl.col("state") == "hea").then(13).otherwise(pl.col("n")).alias("n")
+    )
+    assert analysis.check_distributions(dist, specs, cells_bad).height >= 1
+
+
+def test_choose_spec_ignores_nodata_even_with_overviews(tmp_path: Path, baas: Path, lut: np.ndarray) -> None:
+    """NoData (65535) ei tohi sattuda vahemiku valikusse ka siis, kui failil on pyramiidid."""
+    from rasterio.enums import Resampling
+
+    rng = np.random.default_rng(1)
+    arr = rng.integers(0, 300, (200, 200)).astype(np.uint16)
+    arr[::2, ::2] = 65535  # NoData ruudumustris: pyramiidi keskmistatud mask ei lange andmetega kokku
+    arr[:, 150:] = 65535
+    src = tmp_path / "ovr.tif"
+    _write(src, arr, 10.0, 400_000.0, 6_501_000.0, 65535)
+    with rasterio.open(src, "r+") as ds:
+        ds.build_overviews([2, 4], Resampling.average)
+    spec = hist.choose_spec(src, baas, lut, max_pixels=2_000)
+    assert spec.kind in ("linear", "sqrt") and spec.hi < 400

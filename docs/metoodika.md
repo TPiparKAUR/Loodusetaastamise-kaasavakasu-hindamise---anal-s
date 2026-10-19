@@ -116,6 +116,29 @@ Pindalakaalutud keskmiste vahe **kõigil** pikslitel ühes ühikus. Alamökosüs
 (kasutab kõiki andmeid). **Ökosüsteemi tasemel on see toorhinnang**: seisundiklasside alamökosüsteemide koosseis võib
 erineda ja moonutab tulemust (Simpsoni paradoks). Lehel on see märgitud.
 
+### 5.3 Väärtuste jaotus seisundi kaupa (kirjeldav)
+
+Keskmine ei näita, kas muutus tuleneb kogu jaotuse nihkest või ainult selle osast (nt rohkem nulle). Seepärast salvestatakse
+samal läbikäigul (`oks.hist`, `oks.aggregate`) iga **detailse klassi** kohta pikslite arv väärtuse vahemikes; klassidest liidetakse
+ökosüsteemi/alamökosüsteemi ja seisundi tase (`oks.analysis.distributions`).
+
+* **Vahemike valik** kihi enda väärtustest (`oks.hist.choose_spec`): hõredalt proovitud (≤ 8 miljonit pikslit, lähima naabriga,
+  ilma pyramiidideta, et jaotust ei silutaks), ainult pikslid, millel on seisund ja kehtiv väärtus.
+  * kuni 40 erinevat väärtust (skoorid, klassid): iga väärtus on oma vahemik (`lut`), lisaks vahemik „muu”;
+  * muidu 40 võrdse laiusega vahemikku vahemikus 0,5.–99,5. protsentiil, koos alumise (`< lo`) ja ülemise (`≥ hi`) otsaga;
+  * väga viltuste mittenegatiivsete jaotuste korral (`hi > 12 · mediaan`) on vahemikud ruutjuure skaalal (`sqrt`).
+* **Täpsed nullid** loetakse eraldi (nullirohked kihid, nt marjasaagikus).
+* **Kontroll:** iga (kiht, üksus, seisund) jaotuse pikslite summa peab võrduma plokitabeli pikslite arvuga (`check_distributions`;
+  lahknevuse korral hoiatus logis, testitud sünteetiliselt).
+* **Võrdlusnäitajad** (veebilehel, detailvaates): jaotuste **kattuvus** `Σ min(p_a, p_b)` ja tõenäosus, et juhuslikult valitud parema
+  seisundi piksli väärtus on suurem kui halvema seisundi pikslil (AUC; võrdsed vahemikud pooleks). Mõlemad on arvutatud
+  vahemike täpsusega.
+* **Piirang:** pikslid on ruumiliselt sõltuvad, seega on jaotused ja nende näitajad **kirjeldavad**; olulisuse hinnang on § 6.
+  Jämedate ruudustike (segumudel) kihtidel pikslitaseme jaotust ei ole.
+* **Leitud viga (parandatud):** esimeses versioonis sattus NoData väärtus (nt 255, 65535) vahemike valiku proovi, sest
+  GDAL tuletab allavalimisel (`out_shape`) maski pyramiididest. Kehtivus määratakse nüüd väärtuste võrdlusest NoData-ga;
+  regressioonitest (`tests/test_hist.py`) kasutab ruudumustris NoData-t ja pyramiide.
+
 ## 6. Statistiline olulisus
 
 * **Klastri-bootstrap.** Ruumiline autokorrelatsioon tähendab, et piksleid ega külgnevaid plokke ei saa käsitleda sõltumatutena
@@ -197,7 +220,7 @@ reaalboniteedist; seos seisundi ja boniteedi vahel on osaliselt definitsioonilin
 
 ```bash
 uv sync
-uv run python -m oks aggregate     # 25 rasterit (laeb ja kustutab toorfailid, ~30 min)
+uv run python -m oks aggregate     # 25 rasterit: plokisummad ja jaotused (laeb ja kustutab toorfailid, ~1 h)
 uv run python -m oks fields        # põllumassiivid
 uv run python -m oks analyse       # statistika -> data/tulemused
 uv run python -m oks site          # veebileht -> site/

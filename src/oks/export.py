@@ -217,6 +217,7 @@ def build_data(results: Path, out: Path, sensitivity: Path | None = None) -> dic
     (out / "paarid.json").write_text(json.dumps(_rows(pr, cols_p), separators=(",", ":")), encoding="utf-8")
     (out / "lahtrid.json").write_text(json.dumps(_rows(lr, cols_l), separators=(",", ":")), encoding="utf-8")
     (out / "klassid.json").write_text(json.dumps(_rows(kr, cols_k), separators=(",", ":")), encoding="utf-8")
+    _write_distributions(results, out, li, unit_ix)
     if sensitivity is not None and sensitivity.exists():
         (out / "tundlikkus.json").write_text(
             json.dumps(pl.read_csv(sensitivity).to_dicts(), ensure_ascii=False, separators=(",", ":")),
@@ -233,3 +234,48 @@ def build_data(results: Path, out: Path, sensitivity: Path | None = None) -> dic
     )
     csv.write_csv(out / "tulemused_paarid.csv")
     return meta
+
+
+def _write_distributions(
+    results: Path, out: Path, li: dict[str, int], unit_ix: dict[tuple[str, int], int]
+) -> None:
+    """Kirjuta ``jaotused.json``: vahemikud kihi kaupa ja osakaalud (baaspunktides) üksuse × seisundi kaupa."""
+    pq, js = results / "jaotused.parquet", results / "jaotuse_vahemikud.json"
+    if not (pq.exists() and js.exists()):
+        return
+    specs_raw = json.loads(js.read_text(encoding="utf-8"))
+    dist = pl.read_parquet(pq)
+    state_ix = {s: i for i, s in enumerate(stats.STATES)}
+    specs: dict[str, object] = {}
+    rows: list[list[object]] = []
+    for lid, spec in specs_raw.items():
+        if lid not in li:
+            continue
+        nb = int(spec["n_bins"])
+        specs[str(li[lid])] = {
+            "kind": spec["kind"],
+            "nbins": spec["nbins"],
+            "n_bins": nb,
+            "edges": [_r(float(v)) for v in spec["edges"]],
+        }
+        d = dist.filter(pl.col("layer_id") == lid)
+        for (level, code, state), g in d.group_by(["unit_level", "unit_code", "state"]):
+            counts = [0] * (nb + 1)
+            for b, n in zip(g["bin"].to_list(), g["n"].to_list(), strict=True):
+                counts[int(b)] = int(n)
+            total = sum(counts[:nb])
+            if total == 0:
+                continue
+            shares = [round(c / total * 10000) for c in counts[:nb]]
+            rows.append(
+                [
+                    li[lid],
+                    unit_ix[(level, int(code))],
+                    state_ix[state],
+                    shares,
+                    round(counts[nb] / total * 10000),
+                ]
+            )
+    (out / "jaotused.json").write_text(
+        json.dumps({"spec": specs, "rows": rows}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
+    )
