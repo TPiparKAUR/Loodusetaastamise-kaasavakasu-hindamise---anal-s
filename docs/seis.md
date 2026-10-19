@@ -13,6 +13,7 @@
 | Tundlikkus (klaster 5/20 km, min ala 0,25/4 ha, teine seeme) | tehtud, `docs/tulemused.md` § 6 |
 | Veebileht | tehtud, `site_src/`, ehitus `python -m oks site` |
 | Väärtuste jaotus seisundi kaupa (pikslitaseme histogrammid) | tehtud; 28 kihti, kontroll plokitabeli vastu 3 081 kombinatsiooni, 0 lahknevust; veebis: Teenuse detail, Jaotused |
+| Disainiprintsiibid, seisundipalett (punane–kollane–roheline), jaotuse vaated (kattuvad / eraldi / kumulatiivne), vaheleht Kihtide ülevaade | tehtud, `docs/disain.md` |
 | Veebilehe infonupud (iga filtri tähendus, nt paaritatud/paaritamata) | tehtud |
 | GitHub Pages töövoog | tehtud (vaikeharust); vajab Settings → Pages → Source: GitHub Actions |
 | Testid (sünteetilised andmed teadaoleva vastusega), Ruff, mypy | rohelised |

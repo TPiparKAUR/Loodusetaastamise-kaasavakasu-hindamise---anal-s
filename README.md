@@ -15,7 +15,8 @@ Allikas: ELME kihtide arhiiv (`https://d549q4t3lqrx1.cloudfront.net/arhiiv/`, ba
 ## Veebileht
 
 * Ehitatud sait: `uv run python -m oks site --out site` → `site/index.html` (vajab veebiserverit, nt `python -m http.server -d site`) ja ühefailne `site/oks-seisund.html` (avaneb otse failina).
-* Filtrid: ökosüsteem, alamökosüsteem, teenusegrupp, omadus, teenus, seisundipaar, hinnang (paaritatud/paaritamata), olulisus, minimaalne muutus. Vaated: ülevaade (kuumkaart), teenuse detail (sh **väärtuste jaotus** seisundi kaupa), profiil (keskmised), **jaotused** (kõik teenused ühes üksuses), tabel (CSV), meetod.
+* Filtrid: ökosüsteem, alamökosüsteem, teenusegrupp, omadus, teenus, seisundipaar, hinnang (paaritatud/paaritamata), olulisus, minimaalne muutus. Vaated: ülevaade (kuumkaart), teenuse detail (sh **väärtuste jaotus** seisundi kaupa), profiil (keskmised), **jaotused** (kõik teenused ühes üksuses), **kihtide ülevaade** (kõigi kihtide väärtuste jaotus seisundi koosseisuga), tabel (CSV), meetod.
+* Disain: seisundid on hallikas punane–kollane–roheline (vilets–keskmine–hea), muutuse suund oranž–sinine; printsiibid ja kolleegi graafiku analüüs on failis [`docs/disain.md`](docs/disain.md).
 * Ei kasuta välisteeke ega väliseid päringuid; toetab hele/tume teema, klaviatuuri ja mobiili.
 
 ## GitHub Pages
@@ -23,7 +24,7 @@ Allikas: ELME kihtide arhiiv (`https://d549q4t3lqrx1.cloudfront.net/arhiiv/`, ba
 Töövoog `.github/workflows/pages.yml` ehitab saidi igal pushil ja avaldab selle **repo vaikeharust**.
 
 1. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions** (ühekordne).
-2. Push vaikeharusse või **Actions → Veebileht → Run workflow**. Valmis aadress: `https://<kasutaja>.github.io/<repo-nimi>/`.
+2. Push vaikeharusse või **Actions → Veebileht → Run workflow**. Valmis aadress: `https://<kasutaja>.github.io/<repo-nimi>/` (praegu repo `kaasavakasu`: `https://tpiparkaur.github.io/kaasavakasu/`).
 3. Kui deploy keeldub haru tõttu: **Settings → Environments → github-pages → Deployment branches** lisa vaikeharu.
 
 Repo nime saab muuta: **Settings → General → Repository name**. Pages-aadress muutub nime järgi (vana aadress ei suuna ümber);
@@ -33,7 +34,7 @@ git-remote'i saab uuendada käsuga `git remote set-url origin <uus-url>`. Sait k
 
 ```bash
 uv sync                                  # Python 3.12, uv
-uv run pytest -q                         # 39 testi (sünteetilised andmed teadaoleva vastusega)
+uv run pytest -q                         # 47 testi (sünteetilised andmed teadaoleva vastusega)
 uv run ruff check . && uv run mypy src
 
 # Täielik uuesti arvutus (vajab ligipääsu arhiivi hostile; ~ 40 min, laeb ~ 25 GB, kustutab toorfailid)

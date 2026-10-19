@@ -87,6 +87,7 @@
     tab: 'ulevaade', level: 'okosusteem', ecos: new Set(), alamSel: new Set(), alamN: 12,
     groups: new Set(), props: new Set(), layers: new Set(), pair: 2, est: 'm', sig: 'all', minRel: 0,
     detail: { layer: 0, unit: 0 }, profUnit: 0, sort: { col: 'rel', dir: -1 },
+    dmode: 'over', dzero: false, lunit: -1, lsort: 'grupp', lstack: true, lzero: false,
   };
   const eco = (u) => D.meta.uhikud[u].eco;
   const unitArea = (u) => D.meta.uhikud[u].pind.reduce((a, b) => a + (b || 0), 0);
@@ -230,7 +231,7 @@
   }
 
   /* ---------- vahekaardid ---------- */
-  const TABS = [['ulevaade', 'Ülevaade'], ['teenus', 'Teenuse detail'], ['profiil', 'Profiil'], ['jaotused', 'Jaotused'], ['tabel', 'Tabel'], ['meetod', 'Meetod ja piirangud']];
+  const TABS = [['ulevaade', 'Ülevaade'], ['teenus', 'Teenuse detail'], ['profiil', 'Profiil'], ['jaotused', 'Jaotused'], ['kihid', 'Kihtide ülevaade'], ['tabel', 'Tabel'], ['meetod', 'Meetod ja piirangud']];
   function renderTabs() {
     const n = $('#tabs'); n.replaceChildren();
     for (const [k, t] of TABS) { const b = h('button', { role: 'tab', type: 'button', 'aria-selected': String(S.tab === k) }, n, t); b.onclick = () => { S.tab = k; renderAll(true); }; }
@@ -305,7 +306,7 @@
       y += rowH;
     }
     const lg = h('ul', { class: 'legend' }, card);
-    const li1 = h('li', {}, lg); h('span', { class: 'ramp' }, li1); h('span', {}, li1, '−100 % … 0 … +100 % (punane = väärtus väheneb, sinine = väärtus kasvab; järsemad muutused küllastuvad)');
+    const li1 = h('li', {}, lg); h('span', { class: 'ramp' }, li1); h('span', {}, li1, '−100 % … 0 … +100 % (oranž = väärtus väheneb, sinine = väärtus kasvab; järsemad muutused küllastuvad)');
     const li3 = h('li', {}, lg); h('span', {}, li3, '‡ = uuriv segumudel (jäme ruudustik); tõlgendada ettevaatlikult');
     const li4 = h('li', {}, lg); h('span', {}, li4, '† = seos seisundiga on osaliselt definitsiooniline (kihi väärtus on tuletatud seisundiklassist; vt teenuse detail)');
     const li2 = h('li', {}, lg); h('svg', { width: 12, height: 12 }, li2).append(h('polygon', { points: '12,0 12,10 2,0', fill: cssVar('--ink'), 'fill-opacity': 0.55 })); h('span', {}, li2, 'nurgamärk: ≥ 90 % kihi dispersioonist on baaskaardi klassi tabelväärtus (mudelipõhine; seisundi mõju osaliselt definitsiooniline)');
@@ -368,11 +369,77 @@
 
 
   /* ---------- Jaotused (pikslitaseme histogrammid) ---------- */
-  function distFor(li, ui) {
+  const SHAPE = ['dot', '', 'dia']; // vilets = ring, keskmine = ruut, hea = romb (värvi ei kasutata ainsa eristajana)
+  function swatch(parent, s) { return h('span', { class: `sw ${SHAPE[s]} s${s + 1}` }, parent); }
+  const stateInk = (s) => cssVar(`--st-${s + 1}i`);
+  function stateLegend(parent) {
+    const lg = h('ul', { class: 'legend' }, parent);
+    D.meta.seisundid.forEach((s, i) => { const l = h('li', {}, lg); swatch(l, i); h('span', {}, l, s); });
+    return lg;
+  }
+  function binOf(spec, x) {
+    if (spec.kind === 'lut') return spec.edges.indexOf(x);
+    const e = spec.edges, lo = e[0], hi = e[spec.nbins];
+    if (x < lo) return 0;
+    if (x >= hi) return spec.nbins + 1;
+    const t = spec.kind === 'sqrt' ? (Math.sqrt(Math.max(x, 0)) - Math.sqrt(lo)) / (Math.sqrt(hi) - Math.sqrt(lo)) : (x - lo) / (hi - lo);
+    return Math.min(spec.nbins, Math.max(1, Math.floor(t * spec.nbins) + 1));
+  }
+  /** Seisundite jaotused (osakaalud 0..1); noZero = täpsed nullid välja ja ülejäänu uuesti 100 %-ks. */
+  function distFor(li, ui, noZero) {
     const spec = D.distSpec[li];
     if (!spec) return null;
-    const series = [0, 1, 2].map((st) => D.dist.get(`${li}|${ui}|${st}`) || null);
-    return series.some(Boolean) ? { spec, series } : null;
+    const zb = binOf(spec, 0);
+    const series = [0, 1, 2].map((st) => {
+      const d = D.dist.get(`${li}|${ui}|${st}`);
+      if (!d) return null;
+      let p = d.shares.map((v) => v / 10000);
+      const zero = d.zero / 10000;
+      if (noZero && zb >= 0 && zero > 0) {
+        p = p.slice(); p[zb] = Math.max(0, p[zb] - zero);
+        const s = p.reduce((a, b) => a + b, 0); if (s > 0) p = p.map((v) => v / s);
+      }
+      return { p, zero, cell: D.byCell.get(`${li}|${ui}|${st}`) || null };
+    });
+    return series.some(Boolean) ? { spec, series, zb } : null;
+  }
+  /** Kvantiil vahemike täpsusega (lineaarne interpolatsioon vahemiku sees; ruutjuure skaalal √x-s). */
+  function quantile(spec, p, q) {
+    let c = 0;
+    for (let i = 0; i < p.length; i++) {
+      const nc = c + p[i];
+      if (nc >= q - 1e-12 && p[i] > 0) {
+        if (spec.kind === 'lut') return i < spec.edges.length ? spec.edges[i] : null;
+        const e = spec.edges;
+        if (i === 0) return e[0];
+        if (i === spec.nbins + 1) return e[spec.nbins];
+        const f = (q - c) / p[i], a = e[i - 1], b = e[i];
+        return spec.kind === 'sqrt' ? (Math.sqrt(a) + f * (Math.sqrt(b) - Math.sqrt(a))) ** 2 : a + f * (b - a);
+      }
+      c = nc;
+    }
+    return null;
+  }
+  /** Väärtuse asukoht x-teljel vahemike ühikutes (0 .. n_bins). */
+  function valuePos(spec, v) {
+    const n = spec.n_bins;
+    if (spec.kind === 'lut') {
+      const e = spec.edges; let j = 0; while (j + 1 < e.length && e[j + 1] <= v) j++;
+      const f = j + 1 < e.length ? (v - e[j]) / (e[j + 1] - e[j]) : 0;
+      return Math.max(0.5, Math.min(e.length - 0.5, j + 0.5 + Math.max(0, Math.min(1, f))));
+    }
+    const e = spec.edges, lo = e[0], hi = e[spec.nbins];
+    const t = spec.kind === 'sqrt' ? (Math.sqrt(Math.max(v, 0)) - Math.sqrt(lo)) / (Math.sqrt(hi) - Math.sqrt(lo)) : (v - lo) / (hi - lo);
+    return Math.max(0, Math.min(n, 1 + t * spec.nbins));
+  }
+  /** „Ümmargused“ teljesildid (mitte vahemike servad). */
+  function xTicks(spec, maxN = 6) {
+    if (spec.kind === 'lut') {
+      const e = spec.edges, k = Math.ceil(e.length / maxN);
+      return e.map((v, j) => ({ pos: j + 0.5, label: fmt(v) })).filter((_, j) => j % k === 0);
+    }
+    const lo = spec.edges[0], hi = spec.edges[spec.nbins], nt = niceTicks(lo, hi, maxN);
+    return nt.ticks.filter((v) => v >= lo - 1e-9 && v <= hi + 1e-9).map((v) => ({ pos: valuePos(spec, v), label: fmt(v) }));
   }
   function binLabels(spec) {
     const f = (v) => fmt(v);
@@ -382,130 +449,316 @@
     out.push(`≥ ${f(e[spec.nbins])}`);
     return out;
   }
-  function stepPath(shares, x, y, base) {
-    let d = `M${x(0)},${y(base)}`;
-    shares.forEach((v, i) => { d += ` L${x(i)},${y(v)} L${x(i + 1)},${y(v)}`; });
-    return `${d} L${x(shares.length)},${y(base)}`;
+  const isBars = (spec) => spec.kind === 'lut' && spec.n_bins <= 12;
+  function stepPath(p, x, y) {
+    let d = `M${x(0)},${y(0)}`;
+    p.forEach((v, i) => { d += ` L${x(i)},${y(v)} L${x(i + 1)},${y(v)}`; });
+    return `${d} L${x(p.length)},${y(0)}`;
   }
-  function distChart(card, li, ui) {
-    const T = D.meta.teenused[li], U = D.meta.uhikud[ui];
-    h('h2', {}, card, `Väärtuste jaotus seisundi kaupa: ${U.nimi}`);
-    const dd = distFor(li, ui);
-    if (!dd) { h('p', { class: 'sub' }, card, 'Selle teenuse ja üksuse kohta pole pikslitaseme jaotust (uuriv segumudel või puuduvad andmed).'); return; }
-    const { spec, series } = dd;
-    h('p', { class: 'sub' }, card, `Iga seisundi pikslite osakaal (%) väärtuse vahemikus. Igal seisundil on oma 100 %, seega on kõverad võrreldavad sõltumata seisundi pindalast.${spec.kind === 'sqrt' ? ' Väga viltuse jaotuse tõttu on x-telg ruutjuure skaalal (vahemikud on √x-s võrdse laiusega).' : ''}${spec.kind === 'lut' ? ' Kihil on diskreetsed väärtused (skoorid või klassid).' : ''}`);
-    const n = spec.n_bins, W = Math.max(320, Math.min(980, card.clientWidth - 30 || 700)), H = 300, m = { l: 52, r: 12, t: 16, b: 58 };
-    const top = Math.max(...series.filter(Boolean).flatMap((d) => d.shares)) / 100;
-    const tk = niceTicks(0, top * 1.08, 5), y = (v) => m.t + (H - m.t - m.b) * (1 - v / (tk.hi || 1));
-    const x = (i) => m.l + (W - m.l - m.r) * (i / n);
-    const sc = h('div', { class: 'scroll' }, card);
-    const svg = h('svg', { width: W, height: H, role: 'img', 'aria-label': `${T.nimi}: väärtuste jaotus seisundi kaupa` }, sc);
-    for (const v of tk.ticks) { h('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: 'grid' }, svg); h('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end' }, svg, `${nf(0).format(v)} %`); }
-    const labels = binLabels(spec);
-    const grouped = spec.kind === 'lut' && n <= 12;
+  function stepLine(p, x, y) { return `M${x(0)},${y(p[0])} ` + p.map((v, i) => `L${x(i)},${y(v)} L${x(i + 1)},${y(v)}`).join(' '); }
+  function medianMark(svg, x, y0, spec, d, st, len) {
+    const med = quantile(spec, d.p, 0.5); if (med === null) return;
+    const cx = x(valuePos(spec, med)), ink = stateInk(st);
+    if (len) h('line', { x1: cx, x2: cx, y1: y0, y2: y0 - len, stroke: ink, 'stroke-width': 1.5, 'stroke-dasharray': '4 3', opacity: 0.8 }, svg);
+    h('polygon', { points: `${cx - 5.5},${y0 + 9} ${cx},${y0 + 1} ${cx + 5.5},${y0 + 9}`, fill: ink, stroke: cssVar('--surface'), 'stroke-width': 1.2 }, svg);
+  }
+  function xAxis(svg, spec, x, y0, W, m, unit) {
+    h('line', { x1: m.l, x2: W - m.r, y1: y0, y2: y0, class: 'axis' }, svg);
+    for (const t of xTicks(spec)) { h('line', { x1: x(t.pos), x2: x(t.pos), y1: y0, y2: y0 + 4, class: 'axis' }, svg); h('text', { x: x(t.pos), y: y0 + 22, 'text-anchor': 'middle' }, svg, t.label); }
+    if (spec.kind !== 'lut') {
+      h('text', { x: x(0.5), y: y0 + 22, 'text-anchor': 'middle', class: 'panel-lbl' }, svg, '‹');
+      h('text', { x: x(spec.n_bins - 0.5), y: y0 + 22, 'text-anchor': 'middle', class: 'panel-lbl' }, svg, '›');
+    }
+    h('text', { x: m.l + (W - m.l - m.r) / 2, y: y0 + 42, 'text-anchor': 'middle' }, svg, unit || 'väärtus');
+  }
+  function distStats(card, c) {
+    const { spec, series, T, noZero } = c, unit = (T.uhik || '').split(' (')[0];
+    const box = h('div', { class: 'stats' }, card);
     series.forEach((d, st) => {
       if (!d) return;
-      const sh = d.shares.map((v) => v / 100), col = stateColor(st);
-      if (grouped) {
-        const bw = (W - m.l - m.r) / n, w = Math.min(18, (bw - 6) / 3);
-        sh.forEach((v, i) => { if (v > 0) h('rect', { x: x(i) + bw / 2 + (st - 1) * (w + 2) - w / 2, y: y(v), width: w, height: y(0) - y(v), rx: 2, fill: col }, svg); });
+      const med = quantile(spec, d.p, 0.5), q1 = quantile(spec, d.p, 0.25), q3 = quantile(spec, d.p, 0.75);
+      const s = h('div', { class: `stat s${st + 1}` }, box);
+      const nm = h('div', { class: 'nm' }, s); swatch(nm, st); h('span', {}, nm, D.meta.seisundid[st]);
+      const big = h('div', { class: 'big' }, s, med === null ? '–' : fmt(med)); h('small', {}, big, `mediaan${noZero ? ' (ilma nullideta)' : ''} ${unit}`);
+      h('div', { class: 'sm' }, s, `keskmine${noZero ? ' (kõik pikslid)' : ''} ${fmt(d.cell ? d.cell.mean : null)} · 25–75 %: ${fmt(q1)} … ${fmt(q3)}`);
+      if (d.zero >= 0.01) h('div', { class: 'sm' }, s, `täpselt 0: ${nf(0).format(d.zero * 100)} % pikslitest`);
+    });
+  }
+  function chartOver(parent, c) {
+    const { spec, series, W, T } = c, n = spec.n_bins, H = 300, m = { l: 52, r: 14, t: 14, b: 56 };
+    const top = Math.max(...series.filter(Boolean).flatMap((d) => d.p)) * 100;
+    const tk = niceTicks(0, top * 1.08, 5), y = (v) => m.t + (H - m.t - m.b) * (1 - v / (tk.hi || 1)), x = (i) => m.l + (W - m.l - m.r) * (i / n);
+    const sc = h('div', { class: 'scroll' }, parent);
+    const svg = h('svg', { width: W, height: H, role: 'img', 'aria-label': `${T.nimi}: väärtuste jaotus seisundi kaupa, kattuvad kõverad` }, sc);
+    for (const v of tk.ticks) { h('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: 'grid' }, svg); h('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end' }, svg, `${nf(0).format(v)} %`); }
+    series.forEach((d, st) => {
+      if (!d) return; const p = d.p.map((v) => v * 100);
+      if (isBars(spec)) {
+        const bw = (W - m.l - m.r) / n, w = Math.min(20, (bw - 6) / 3);
+        p.forEach((v, i) => { if (v > 0) h('rect', { x: x(i) + bw / 2 + (st - 1) * (w + 2) - w / 2, y: y(v), width: w, height: y(0) - y(v), rx: 2, fill: stateColor(st) }, svg); });
       } else {
-        h('path', { d: stepPath(sh, x, y, 0), fill: col, 'fill-opacity': 0.12, stroke: 'none' }, svg);
-        h('path', { d: `M${x(0)},${y(sh[0])} ` + sh.map((v, i) => `L${x(i)},${y(v)} L${x(i + 1)},${y(v)}`).join(' '), fill: 'none', stroke: col, 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
+        h('path', { d: stepPath(p, x, y), fill: stateColor(st), 'fill-opacity': 0.3, stroke: 'none' }, svg);
+        h('path', { d: stepLine(p, x, y), fill: 'none', stroke: stateInk(st), 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
       }
     });
-    // x-telje sildid
-    if (spec.kind === 'lut') {
-      const step = Math.ceil(n / 14);
-      labels.forEach((l, i) => { if (i % step === 0 || i === n - 1) h('text', { x: x(i) + (W - m.l - m.r) / n / 2, y: H - m.b + 16, 'text-anchor': 'middle' }, svg, l); });
-    } else {
-      const e = spec.edges, k = Math.ceil((spec.nbins + 1) / 7);
-      for (let i = 0; i <= spec.nbins; i += k) { h('line', { x1: x(i + 1), x2: x(i + 1), y1: y(0), y2: y(0) + 4, class: 'axis' }, svg); h('text', { x: x(i + 1), y: H - m.b + 18, 'text-anchor': 'middle' }, svg, fmt(e[i])); }
-      h('text', { x: x(0.5), y: H - m.b + 18, 'text-anchor': 'middle' }, svg, '<');
-      h('text', { x: x(n - 0.5), y: H - m.b + 18, 'text-anchor': 'middle' }, svg, '≥');
-    }
-    h('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), class: 'axis' }, svg);
-    h('text', { x: m.l + (W - m.l - m.r) / 2, y: H - 6, 'text-anchor': 'middle' }, svg, T.uhik || 'väärtus');
-    // keskmise märgid
-    if (spec.kind !== 'lut') {
-      series.forEach((d, st) => {
-        const c = D.byCell.get(`${li}|${ui}|${st}`); if (!d || !c) return;
-        const e = spec.edges, lo = e[0], hi = e[spec.nbins];
-        const t = spec.kind === 'sqrt' ? (Math.sqrt(Math.max(c.mean, 0)) - Math.sqrt(lo)) / (Math.sqrt(hi) - Math.sqrt(lo)) : (c.mean - lo) / (hi - lo);
-        const pos = Math.max(0, Math.min(n, 1 + t * spec.nbins));
-        h('circle', { cx: x(pos), cy: y(0), r: 5, fill: stateColor(st), stroke: cssVar('--surface'), 'stroke-width': 2 }, svg);
-      });
-    }
-    // hover: vahemik -> kõigi seisundite osakaalud
+    xAxis(svg, spec, x, y(0), W, m, T.uhik);
+    series.forEach((d, st) => { if (d) medianMark(svg, x, y(0), spec, d, st, y(0) - y(tk.hi)); });
+    hoverBins(svg, c, x, m, H);
+  }
+  function hoverBins(svg, c, x, m, H) {
+    const { spec, series, T } = c, labels = binLabels(spec), n = spec.n_bins;
     for (let i = 0; i < n; i++) {
-      const r = h('rect', { x: x(i), y: m.t, width: (W - m.l - m.r) / n, height: H - m.t - m.b, fill: 'transparent' }, svg);
-      tipOn(r, (t) => { tl(t, 'm', `${T.nimi} · ${labels[i]} ${T.uhik || ''}`); series.forEach((d, st) => { if (d) { const row = tl(t, 'v', `${nf(1).format(d.shares[i] / 100)} %`); h('span', { class: 'm' }, row, `  ${D.meta.seisundid[st]}`); } }); });
+      const r = h('rect', { x: x(i), y: m.t, width: x(i + 1) - x(i), height: H - m.t - m.b, fill: 'transparent' }, svg);
+      tipOn(r, (t) => { tl(t, 'm', `${T.nimi} · ${labels[i]} ${T.uhik || ''}`); series.forEach((d, st) => { if (d) { const row = tl(t, 'v', `${nf(1).format(d.p[i] * 100)} %`); h('span', { class: 'm' }, row, `  ${D.meta.seisundid[st]}`); } }); });
     }
-    const lg = h('ul', { class: 'legend' }, card);
-    series.forEach((d, st) => {
-      if (!d) return; const c = D.byCell.get(`${li}|${ui}|${st}`); const li2 = h('li', {}, lg); h('span', { class: 'sw', style: `--c:${stateColor(st)}` }, li2);
-      h('span', {}, li2, `${D.meta.seisundid[st]}${c ? ` · aritmeetiline keskmine ${fmt(c.mean)}` : ''}${d.zero >= 500 ? ` · täpselt 0: ${nf(0).format(d.zero / 100)} %` : ''}`);
+  }
+  function chartSplit(parent, c) {
+    const { spec, series, W, T } = c, n = spec.n_bins, act = series.map((d, st) => ({ d, st })).filter((o) => o.d);
+    const ph = 88, gap = 22, m = { l: 52, r: 14, t: 8, b: 56 }, H = m.t + act.length * (ph + gap) - gap + m.b;
+    const top = Math.max(...act.flatMap((o) => o.d.p)) * 100, tk = niceTicks(0, top * 1.08, 2), x = (i) => m.l + (W - m.l - m.r) * (i / n);
+    const sc = h('div', { class: 'scroll' }, parent);
+    const svg = h('svg', { width: W, height: H, role: 'img', 'aria-label': `${T.nimi}: väärtuste jaotus seisundi kaupa, eraldi paneelid ühise skaalaga` }, sc);
+    act.forEach(({ d, st }, k) => {
+      const y0 = m.t + k * (ph + gap) + ph, y = (v) => y0 - ph * (v / (tk.hi || 1)), p = d.p.map((v) => v * 100);
+      for (const v of tk.ticks) { h('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: 'grid' }, svg); h('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end' }, svg, `${nf(0).format(v)} %`); }
+      const q1 = quantile(spec, d.p, 0.25), q3 = quantile(spec, d.p, 0.75);
+      if (q1 !== null && q3 !== null) h('rect', { x: x(valuePos(spec, q1)), y: y0 - ph, width: Math.max(2, x(valuePos(spec, q3)) - x(valuePos(spec, q1))), height: ph, fill: stateInk(st), opacity: 0.1 }, svg);
+      if (isBars(spec)) { const bw = (W - m.l - m.r) / n, w = Math.min(26, bw - 6); p.forEach((v, i) => { if (v > 0) h('rect', { x: x(i) + bw / 2 - w / 2, y: y(v), width: w, height: y0 - y(v), rx: 2, fill: stateColor(st) }, svg); }); }
+      else { h('path', { d: stepPath(p, x, y), fill: stateColor(st), 'fill-opacity': 0.75, stroke: 'none' }, svg); h('path', { d: stepLine(p, x, y), fill: 'none', stroke: stateInk(st), 'stroke-width': 1.6, 'stroke-linejoin': 'round' }, svg); }
+      h('line', { x1: m.l, x2: W - m.r, y1: y0, y2: y0, class: 'axis' }, svg);
+      const lab = h('g', {}, svg), sw = h('circle', { cx: m.l + 12, cy: y0 - ph + 12, r: 5, fill: stateColor(st), stroke: stateInk(st), 'stroke-width': 1.5 }, lab);
+      void sw; h('text', { x: m.l + 23, y: y0 - ph + 16, class: 'strong' }, lab, D.meta.seisundid[st]);
+      medianMark(svg, x, y0, spec, d, st, ph);
     });
+    const yb = m.t + act.length * (ph + gap) - gap;
+    xAxis(svg, spec, x, yb, W, m, T.uhik);
+    hoverBins(svg, c, x, m, H);
+  }
+  function chartCdf(parent, c) {
+    const { spec, series, W, T } = c, n = spec.n_bins, H = 300, m = { l: 52, r: 14, t: 14, b: 56 };
+    const y = (v) => m.t + (H - m.t - m.b) * (1 - v), x = (i) => m.l + (W - m.l - m.r) * (i / n);
+    const sc = h('div', { class: 'scroll' }, parent);
+    const svg = h('svg', { width: W, height: H, role: 'img', 'aria-label': `${T.nimi}: kumulatiivne jaotus seisundi kaupa` }, sc);
+    for (const v of [0, 0.25, 0.5, 0.75, 1]) { h('line', { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: v === 0.5 ? 'axis' : 'grid', 'stroke-dasharray': v === 0.5 ? '4 3' : null }, svg); h('text', { x: m.l - 6, y: y(v) + 4, 'text-anchor': 'end' }, svg, `${nf(0).format(v * 100)} %`); }
+    series.forEach((d, st) => {
+      if (!d) return; let cum = 0; const bars = spec.kind === 'lut';
+      let path = `M${x(0)},${y(0)}`;
+      d.p.forEach((v, i) => { const c0 = cum; cum += v; path += bars ? ` L${x(i + 0.5)},${y(c0)} L${x(i + 0.5)},${y(cum)}` : ` L${x(i + 1)},${y(cum)}`; });
+      path += ` L${x(n)},${y(Math.min(1, cum))}`;
+      h('path', { d: path, fill: 'none', stroke: stateInk(st), 'stroke-width': 2.4, 'stroke-linejoin': 'round' }, svg);
+      const med = quantile(spec, d.p, 0.5); if (med !== null) h('circle', { cx: x(valuePos(spec, med)), cy: y(0.5), r: 5, fill: stateColor(st), stroke: stateInk(st), 'stroke-width': 2 }, svg);
+    });
+    xAxis(svg, spec, x, y(0), W, m, T.uhik);
+    const labels = binLabels(spec);
+    for (let i = 0; i < n; i++) {
+      const r = h('rect', { x: x(i), y: m.t, width: x(i + 1) - x(i), height: H - m.t - m.b, fill: 'transparent' }, svg);
+      tipOn(r, (t) => { tl(t, 'm', `${T.nimi} · ≤ ${labels[i].split(' … ').pop()} ${T.uhik || ''}`); series.forEach((d, st) => { if (d) { const cum = d.p.slice(0, i + 1).reduce((a, b) => a + b, 0); const row = tl(t, 'v', `${nf(0).format(cum * 100)} % pikslitest`); h('span', { class: 'm' }, row, `  ${D.meta.seisundid[st]}`); } }); });
+    }
+  }
+  const DMODES = [['over', 'Kattuvad'], ['split', 'Eraldi paneelid'], ['cdf', 'Kumulatiivne']];
+  const DMODE_HELP = {
+    over: 'Kõverad ühel teljel: näed, kui palju seisundid kattuvad. Kolmnurk teljel = mediaan.',
+    split: 'Iga seisund oma paneelis, ühine x- ja y-skaala: näed iga jaotuse kuju. Joon = mediaan, varjutatud riba = 25–75 % pikslitest.',
+    cdf: 'Kumulatiivne osakaal: „mitu % pikslitest on väärtusega ≤ x“. Mida enam kõver paremale nihkub, seda suuremad väärtused seisundis on; vahemike valik tulemust ei mõjuta. Punkt = mediaan (50 %).',
+  };
+  function distChart(card, li, ui) {
+    const T = D.meta.teenused[li], U = D.meta.uhikud[ui];
+    h('h2', {}, card, `Väärtuste jaotus seisundi kaupa · ${U.nimi}`);
+    const base = distFor(li, ui, false);
+    if (!base) { h('p', { class: 'sub' }, card, 'Selle teenuse ja üksuse kohta pole pikslitaseme jaotust (uuriv segumudel või puuduvad andmed).'); return; }
+    const hasZero = base.zb >= 0 && base.series.some((d) => d && d.zero >= 0.03);
+    const noZero = S.dzero && hasZero, dd = noZero ? distFor(li, ui, true) : base, { spec, series } = dd;
+    h('p', { class: 'sub' }, card, `Iga seisundi pikslite osakaal väärtuse vahemikus; igal seisundil on oma 100 %, seega on jaotused võrreldavad sõltumata seisundi pindalast.${spec.kind === 'sqrt' ? ' Väga viltuse jaotuse tõttu on x-telg ruutjuure skaalal (vahemikud on √x-s võrdse laiusega).' : ''}${spec.kind === 'lut' ? ' Kihil on diskreetsed väärtused (skoorid või klassid).' : ''}`);
+    const tools = h('div', { class: 'tools' }, card);
+    h('span', { class: 'tl' }, tools, 'Vaade');
+    const sg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Jaotuse vaade' }, tools);
+    for (const [v, t] of DMODES) { const b = h('button', { type: 'button', 'aria-pressed': String(S.dmode === v) }, sg, t); b.onclick = () => { S.dmode = v; renderAll(true); }; }
+    if (hasZero) {
+      const z = Math.max(...base.series.filter(Boolean).map((d) => d.zero));
+      const lb = h('label', { class: 'chk' }, tools), cb = h('input', { type: 'checkbox' }, lb); cb.checked = noZero;
+      h('span', {}, lb, `Ilma täpsete nullideta (kuni ${nf(0).format(z * 100)} % pikslitest)`);
+      cb.onchange = () => { S.dzero = cb.checked; renderAll(true); };
+    }
+    h('p', { class: 'note' }, card, DMODE_HELP[S.dmode]);
+    const c = { spec, series, T, noZero, W: Math.max(320, Math.min(1240, card.clientWidth - 40 || 700)) };
+    distStats(card, c);
+    ({ over: chartOver, split: chartSplit, cdf: chartCdf })[S.dmode](card, c);
+    const lg = stateLegend(card);
+    const lm = h('li', {}, lg); h('svg', { width: 14, height: 11 }, lm).append(h('polygon', { points: '1,10 7,1 13,10', fill: cssVar('--ink-2') })); h('span', {}, lm, 'mediaan (vahemike täpsusega)');
     const cmp = [[0, 1], [1, 2], [0, 2]].filter(([a, b]) => series[a] && series[b]);
     if (cmp.length) {
       h('h3', {}, card, 'Jaotuste võrdlus');
       const tw = h('div', { class: 'scroll' }, card), tc = h('table', { class: 'data' }, tw), hc = h('tr', {}, h('thead', {}, tc));
-      for (const c of ['Seisundipaar', 'Jaotuste kattuvus', 'Parema seisundi piksel on väärtuselt suurem']) h('th', {}, hc, c);
+      for (const t of ['Seisundipaar', 'Jaotuste kattuvus', 'Parema seisundi piksel on väärtuselt suurem', 'Mediaanide vahe']) h('th', {}, hc, t);
       const tbc = h('tbody', {}, tc);
       for (const [a, b] of cmp) {
-        const pa = series[a].shares.map((v) => v / 10000), pb = series[b].shares.map((v) => v / 10000);
+        const pa = series[a].p, pb = series[b].p;
         let ov = 0, auc = 0, cum = 0;
         pa.forEach((v, i) => { ov += Math.min(v, pb[i]); auc += pb[i] * (cum + 0.5 * v); cum += v; });
-        const tr = h('tr', {}, tbc); h('td', {}, tr, `${D.meta.seisundid[a]} → ${D.meta.seisundid[b]}`); h('td', {}, tr, `${nf(0).format(ov * 100)} %`); h('td', {}, tr, `${nf(0).format(auc * 100)} %`);
+        const ma = quantile(spec, pa, 0.5), mb = quantile(spec, pb, 0.5);
+        const tr = h('tr', {}, tbc); h('td', {}, tr, `${D.meta.seisundid[a]} → ${D.meta.seisundid[b]}`); h('td', {}, tr, `${nf(0).format(ov * 100)} %`); h('td', {}, tr, `${nf(0).format(auc * 100)} %`); h('td', {}, tr, ma !== null && mb !== null ? `${sgn(mb - ma)} ${(T.uhik || '').split(' (')[0]}` : '–');
       }
-      h('p', { class: 'note' }, card, 'Kattuvus = jaotuste ühisosa (100 % = identsed, 0 % = täiesti eraldi). Teine veerg: tõenäosus, et juhuslikult valitud parema seisundi piksli väärtus on suurem kui halvema seisundi pikslil (50 % = vahet pole; võrdsed vahemikud loetakse pooleks). Arvutatud pikslitaseme jaotustest vahemike täpsusega; pikslid on ruumiliselt sõltuvad, seega on need kirjeldavad näitajad, mitte olulisuse testid (olulisus on eespool, 10 km klastrite bootstrapiga).');
+      h('p', { class: 'note' }, card, `Kattuvus = jaotuste ühisosa (100 % = identsed, 0 % = täiesti eraldi). Teine veerg: tõenäosus, et juhuslikult valitud parema seisundi piksli väärtus on suurem kui halvema seisundi pikslil (50 % = vahet pole; võrdsed vahemikud loetakse pooleks).${noZero ? ' Praegune vaade on ilma täpsete nullideta.' : ''} Kõik arvud on arvutatud pikslitaseme jaotustest vahemike täpsusega; pikslid on ruumiliselt sõltuvad, seega on need kirjeldavad näitajad, mitte olulisuse testid (olulisus on eespool, 10 km klastrite bootstrapiga).`);
     }
-    if (spec.kind !== 'lut') h('p', { class: 'note' }, card, 'Punkt x-teljel = pindalakaalutud keskmine (nupp võib jääda vahemiku serva, kui keskmine on väljaspool kuvatud vahemikku).');
     const det = h('details', {}, card); h('summary', {}, det, 'Tabelivaade (osakaal %)');
-    const sc2 = h('div', { class: 'scroll' }, det), t2 = h('table', { class: 'data' }, sc2), hr = h('tr', {}, h('thead', {}, t2));
-    for (const c of [`Vahemik (${T.uhik || 'väärtus'})`, ...D.meta.seisundid]) h('th', {}, hr, c);
+    const sc2 = h('div', { class: 'scroll' }, det), t2 = h('table', { class: 'data' }, sc2), hr = h('tr', {}, h('thead', {}, t2)), labels = binLabels(spec);
+    for (const t of [`Vahemik (${T.uhik || 'väärtus'})`, ...D.meta.seisundid]) h('th', {}, hr, t);
     const tb = h('tbody', {}, t2);
-    labels.forEach((l, i) => { const tr = h('tr', {}, tb); h('td', {}, tr, l); series.forEach((d) => h('td', {}, tr, d ? nf(1).format(d.shares[i] / 100) : '–')); });
+    labels.forEach((l, i) => { const tr = h('tr', {}, tb); h('td', {}, tr, l); series.forEach((d) => h('td', {}, tr, d ? nf(1).format(d.p[i] * 100) : '–')); });
   }
   function distMini(parent, li, ui) {
-    const dd = distFor(li, ui); if (!dd) return false;
-    const { spec, series } = dd, n = spec.n_bins, W = 196, H = 64, m = { l: 4, r: 4, t: 4, b: 4 };
-    const top = Math.max(...series.filter(Boolean).flatMap((d) => d.shares)) || 1;
+    const dd = distFor(li, ui, false); if (!dd) return null;
+    const { spec, series } = dd, n = spec.n_bins, W = 226, H = 84, m = { l: 4, r: 4, t: 6, b: 14 };
+    const top = Math.max(...series.filter(Boolean).flatMap((d) => d.p)) || 1;
     const x = (i) => m.l + (W - m.l - m.r) * (i / n), y = (v) => m.t + (H - m.t - m.b) * (1 - v / top);
     const svg = h('svg', { width: W, height: H, role: 'img', 'aria-label': `${D.meta.teenused[li].nimi}: jaotus seisundi kaupa` }, parent);
-    h('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), class: 'axis' }, svg);
     series.forEach((d, st) => {
-      if (!d) return; const col = stateColor(st);
-      if (spec.kind === 'lut' && n <= 12) { const bw = (W - m.l - m.r) / n, w = Math.max(2, Math.min(8, (bw - 2) / 3)); d.shares.forEach((v, i) => { if (v > 0) h('rect', { x: x(i) + bw / 2 + (st - 1) * (w + 1) - w / 2, y: y(v), width: w, height: y(0) - y(v), fill: col }, svg); }); }
-      else h('path', { d: `M${x(0)},${y(d.shares[0])} ` + d.shares.map((v, i) => `L${x(i)},${y(v)} L${x(i + 1)},${y(v)}`).join(' '), fill: 'none', stroke: col, 'stroke-width': 1.8, 'stroke-linejoin': 'round' }, svg);
+      if (!d) return;
+      if (isBars(spec)) { const bw = (W - m.l - m.r) / n, w = Math.max(2, Math.min(9, (bw - 2) / 3)); d.p.forEach((v, i) => { if (v > 0) h('rect', { x: x(i) + bw / 2 + (st - 1) * (w + 1) - w / 2, y: y(v), width: w, height: y(0) - y(v), fill: stateColor(st) }, svg); }); }
+      else { h('path', { d: stepPath(d.p, x, y), fill: stateColor(st), 'fill-opacity': 0.28, stroke: 'none' }, svg); h('path', { d: stepLine(d.p, x, y), fill: 'none', stroke: stateInk(st), 'stroke-width': 1.6, 'stroke-linejoin': 'round' }, svg); }
     });
-    return true;
+    h('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), class: 'axis' }, svg);
+    series.forEach((d, st) => { if (d) medianMark(svg, x, y(0), spec, d, st, 0); });
+    return { spec, series };
   }
   function distTab(root) {
     const M = D.meta, card = h('section', { class: 'card' }, root);
     h('h2', {}, card, 'Väärtuste jaotus seisundi kaupa: kõik teenused');
-    h('p', { class: 'sub' }, card, 'Iga mini-graafik näitab teenuse pikslite jaotust väärtuse vahemikes kolmes seisundis (igal seisundil oma 100 %). Kui kõverad on üksteisest eraldi, muutub teenus seisundi vahel; kui kattuvad, ei muutu. Klõpsa graafikut, et avada täpne jaotus, tabel ja hinnangud.');
+    h('p', { class: 'sub' }, card, 'Iga kaart näitab teenuse pikslite jaotust kolmes seisundis (igal seisundil oma 100 %; y-telg on kaardi sees normeeritud, et kuju oleks võrreldav). Kolmnurgad teljel = mediaanid. Kui kõverad on üksteisest eraldi, muutub teenus seisundi vahel; kui kattuvad, ei muutu. Klõpsa kaarti, et avada täpne jaotus, tabel ja hinnangud.');
     const ctl = h('div', { class: 'frow' }, card); const g = h('div', { class: 'fgrp wide' }, ctl); h('label', { for: 'du2' }, g, 'Ökosüsteem / alamökosüsteem');
     const sel = h('select', { id: 'du2' }, g);
     const us = M.uhikud.map((u, i) => ({ u, i })).filter(({ u }) => S.ecos.has(u.eco));
     if (!us.some(({ i }) => i === S.profUnit) && us.length) S.profUnit = us[0].i;
     for (const { u, i } of us) { const o = h('option', { value: i }, sel, `${u.tase === 'okosusteem' ? '▪ ' : '   '}${u.nimi}`); if (i === S.profUnit) o.selected = true; }
     sel.onchange = () => { S.profUnit = +sel.value; renderAll(true); };
-    const minis = h('div', { class: 'minis' }, card); let n = 0;
+    stateLegend(card);
+    const minis = h('div', { class: 'minis big' }, card); let n = 0;
     for (const { t, i } of visLayers()) {
-      const probe = distFor(i, S.profUnit); if (!probe) continue;
+      if (!distFor(i, S.profUnit, false)) continue;
       const m = h('div', { class: 'mini', tabindex: 0, role: 'button', 'aria-label': `Ava detail: ${t.nimi}` }, minis);
       h('h4', {}, m, t.nimi); h('div', { class: 'u' }, m, `${t.grupp}${t.uhik ? ` · ${t.uhik}` : ''}`);
-      distMini(m, i, S.profUnit);
-      const r2 = D.byPair.get(`${i}|${S.profUnit}|2`), e = est(r2);
-      h('div', { class: 'u' }, m, e && e.ok ? `vilets → hea: ${pct(e.rel)}${e.sig ? '' : ' (ei ole oluline)'}` : 'vilets → hea: ebapiisavalt andmeid');
+      const dm = distMini(m, i, S.profUnit), U = (t.uhik || '').split(' (')[0];
+      const meds = dm.series.map((d) => (d ? quantile(dm.spec, d.p, 0.5) : null));
+      h('div', { class: 'nm2' }, m, `mediaan: ${meds.map((v) => (v === null ? '–' : fmt(v))).join(' → ')} ${U}`);
+      const foot = h('div', { class: 'foot' }, m), r2 = D.byPair.get(`${i}|${S.profUnit}|2`), e = est(r2);
+      h('span', { class: `pill${e && e.ok && e.sig ? ' sig' : ''}` }, foot, e && e.ok ? `vilets → hea: ${pct(e.rel)}${e.sig ? ' · oluline' : ' · ei ole oluline'}` : 'vilets → hea: ebapiisavalt andmeid');
+      const z = Math.max(...dm.series.filter(Boolean).map((d) => d.zero)); if (z >= 0.05) h('span', { class: 'pill zero' }, foot, `täpselt 0: ${nf(0).format(z * 100)} %`);
       const go = () => { S.detail.layer = i; S.detail.unit = S.profUnit; S.tab = 'teenus'; renderAll(true); scrollTo(0, 0); };
       m.onclick = go; m.onkeydown = (ev) => { if (ev.key === 'Enter') go(); };
       n++;
     }
     if (!n) h('p', { class: 'empty' }, card, D.distSpec && Object.keys(D.distSpec).length ? 'Selles üksuses pole valitud teenustel jaotust.' : 'Jaotuse andmed puuduvad.');
-    const lg = h('ul', { class: 'legend' }, card);
-    M.seisundid.forEach((s, i) => { const li2 = h('li', {}, lg); h('span', { class: 'sw', style: `--c:${stateColor(i)}` }, li2); h('span', {}, li2, s); });
+  }
+
+  /* ---------- Kihtide ülevaade (ühe pilguga kõigi kihtide jaotused) ---------- */
+  function pooled(li, units, noZero) {
+    const spec = D.distSpec[li]; if (!spec) return null;
+    const nb = spec.n_bins, zb = binOf(spec, 0), st = [0, 1, 2].map(() => new Array(nb).fill(0)), zs = [0, 0, 0];
+    let N = 0;
+    for (const u of units) for (let s = 0; s < 3; s++) {
+      const d = D.dist.get(`${li}|${u}|${s}`), c = D.byCell.get(`${li}|${u}|${s}`); if (!d || !c) continue;
+      N += c.n; zs[s] += c.n * d.zero / 10000;
+      d.shares.forEach((v, i) => { st[s][i] += c.n * v / 10000; });
+    }
+    if (!N) return null;
+    const Z = zs.reduce((a, b) => a + b, 0);
+    let use = N;
+    if (noZero && zb >= 0 && Z > 0) { for (let s = 0; s < 3; s++) st[s][zb] = Math.max(0, st[s][zb] - zs[s]); use = N - Z; }
+    if (!(use > 0)) return null;
+    const stack = st.map((a) => a.map((v) => v / use)), total = new Array(nb).fill(0).map((_, i) => stack[0][i] + stack[1][i] + stack[2][i]);
+    return { spec, stack, total, zero: Z / N, nPix: N };
+  }
+  let twinCache = null;
+  /** Kihid, mille seisundikaupa jaotuse kuju on kõigis ökosüsteemides sama (kattuvus ≥ 0,97), st erinevad ainult skaala poolest. */
+  function twins() {
+    if (twinCache) return twinCache;
+    twinCache = new Map();
+    const ls = Object.keys(D.distSpec).map(Number).sort((a, b) => a - b), ecoU = D.meta.uhikud.map((u, i) => ({ u, i })).filter(({ u }) => u.tase === 'okosusteem').map(({ i }) => i);
+    for (let a = 0; a < ls.length; a++) for (let b = a + 1; b < ls.length; b++) {
+      const A = D.distSpec[ls[a]], B = D.distSpec[ls[b]];
+      if (A.kind !== B.kind || A.n_bins !== B.n_bins) continue;
+      let worst = 1, cnt = 0;
+      for (const u of ecoU) for (let s = 0; s < 3; s++) {
+        const x = D.dist.get(`${ls[a]}|${u}|${s}`), y = D.dist.get(`${ls[b]}|${u}|${s}`); if (!x || !y) continue;
+        cnt++; worst = Math.min(worst, x.shares.reduce((t, v, i) => t + Math.min(v, y.shares[i]), 0) / 10000);
+      }
+      if (cnt >= 6 && worst >= 0.97) { twinCache.set(ls[a], ls[b]); twinCache.set(ls[b], ls[a]); }
+    }
+    return twinCache;
+  }
+  function layerTile(parent, t, i, units, opts) {
+    const P = pooled(i, units, opts.noZero); if (!P) return false;
+    const { spec } = P, n = spec.n_bins, W = 236, H = 96, m = { l: 4, r: 4, t: 14, b: 22 };
+    const top = Math.max(...P.total) || 1, x = (k) => m.l + (W - m.l - m.r) * (k / n), y = (v) => m.t + (H - m.t - m.b) * (1 - v / top);
+    const tile = h('div', { class: 'mini', tabindex: 0, role: 'button', 'aria-label': `Ava detail: ${t.nimi}` }, parent);
+    h('h4', {}, tile, t.nimi); h('div', { class: 'u' }, tile, `${t.grupp}${t.uhik ? ` · ${t.uhik}` : ''}`);
+    const svg = h('svg', { width: W, height: H, role: 'img', 'aria-label': `${t.nimi}: väärtuste jaotus${opts.stack ? ' seisundi koosseisuga' : ''}` }, tile);
+    const bw = (W - m.l - m.r) / n;
+    for (let k = 0; k < n; k++) {
+      if (opts.stack) {
+        let base = 0;
+        for (let s = 0; s < 3; s++) { const v = P.stack[s][k]; if (v <= 0) continue; const y1 = y(base + v), y0 = y(base); h('rect', { x: x(k) + (n > 14 ? 0.2 : 1), y: y1, width: Math.max(1, bw - (n > 14 ? 0.4 : 2)), height: Math.max(0.5, y0 - y1), fill: stateColor(s) }, svg); base += v; }
+      } else if (P.total[k] > 0) h('rect', { x: x(k) + (n > 14 ? 0.2 : 1), y: y(P.total[k]), width: Math.max(1, bw - (n > 14 ? 0.4 : 2)), height: y(0) - y(P.total[k]), fill: cssVar('--neutral') }, svg);
+    }
+    h('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), class: 'axis' }, svg);
+    const tks = xTicks(spec, 4); tks.forEach((tk, j) => h('text', { x: Math.max(14, Math.min(W - 14, x(tk.pos))), y: H - 6, 'text-anchor': 'middle', style: 'font-size:10.5px' }, svg, tk.label));
+    h('text', { x: W - m.r, y: 10, 'text-anchor': 'end', style: 'font-size:10.5px' }, svg, `kõrgeim tulp ${nf(top >= 0.1 ? 0 : 1).format(top * 100)} %`);
+    const med = quantile(spec, P.total, 0.5), foot = h('div', { class: 'foot' }, tile);
+    h('span', { class: 'pill' }, foot, `mediaan ${med === null ? '–' : fmt(med)}`);
+    if (P.zero >= 0.03) h('span', { class: 'pill zero' }, foot, `täpselt 0: ${nf(0).format(P.zero * 100)} %`);
+    const tw = twins().get(i); if (tw !== undefined) h('span', { class: 'pill' }, foot, `sama kuju kui «${D.meta.teenused[tw].nimi.slice(0, 34)}${D.meta.teenused[tw].nimi.length > 34 ? '…' : ''}»`);
+    const go = () => { S.detail.layer = i; const u0 = units.find((u) => D.byCell.has(`${i}|${u}|0`) || D.byCell.has(`${i}|${u}|1`)); S.detail.unit = u0 === undefined ? S.detail.unit : u0; S.tab = 'teenus'; renderAll(true); scrollTo(0, 0); };
+    tile.onclick = go; tile.onkeydown = (ev) => { if (ev.key === 'Enter') go(); };
+    tipOn(tile, (tp) => { tl(tp, 'm', t.nimi); tl(tp, 'v', `mediaan ${med === null ? '–' : fmt(med)} ${(t.uhik || '').split(' (')[0]}`); tl(tp, 'm', `${nf(1).format(P.nPix * (t.res || 10) ** 2 / 1e6)} km² seisundiga pindala`); });
+    P.med = med; return P;
+  }
+  function layersTab(root) {
+    const M = D.meta, card = h('section', { class: 'card' }, root);
+    h('h2', {}, card, 'Kihtide ülevaade: kõigi teenuste väärtuste jaotus');
+    h('p', { class: 'sub' }, card, 'Üks pilk kõigile kihtidele: kuidas jagunevad teenuse väärtused pikslite vahel. Osakaal (%), mitte pikslite arv, nii on kihid võrreldavad ka eri eraldusvõime korral. Arvesse lähevad ainult seisundiga pikslid (vilets, keskmine, hea). Tulba värvid näitavad, millisest seisundist väärtus pärineb.');
+    const ctl = h('div', { class: 'frow' }, card);
+    const g = h('div', { class: 'fgrp wide' }, ctl); h('label', { for: 'lu' }, g, 'Üksus');
+    const sel = h('select', { id: 'lu' }, g);
+    const o0 = h('option', { value: -1 }, sel, '▪ Kõik ökosüsteemid kokku'); if (S.lunit === -1) o0.selected = true;
+    for (const [i, u] of M.uhikud.entries()) { if (!S.ecos.has(u.eco)) continue; const o = h('option', { value: i }, sel, `${u.tase === 'okosusteem' ? '▪ ' : '   '}${u.nimi}`); if (S.lunit === i) o.selected = true; }
+    sel.onchange = () => { S.lunit = +sel.value; renderAll(true); };
+    const g2 = h('div', { class: 'fgrp' }, ctl); h('label', { for: 'ls' }, g2, 'Järjesta');
+    const ss = h('select', { id: 'ls' }, g2);
+    for (const [v, t] of [['grupp', 'Teenusegrupi ja nime järgi'], ['zero', 'Täpsete nullide osakaalu järgi'], ['skew', 'Mediaan / ülemine ots (viltuse järgi)']]) { const o = h('option', { value: v }, ss, t); if (S.lsort === v) o.selected = true; }
+    ss.onchange = () => { S.lsort = ss.value; renderAll(true); };
+    const tools = h('div', { class: 'tools' }, card);
+    h('span', { class: 'tl' }, tools, 'Värv');
+    const sg = h('div', { class: 'seg', role: 'group', 'aria-label': 'Tulpade värv' }, tools);
+    for (const [v, t] of [[true, 'Seisundi koosseis'], [false, 'Kõik pikslid kokku']]) { const b = h('button', { type: 'button', 'aria-pressed': String(S.lstack === v) }, sg, t); b.onclick = () => { S.lstack = v; renderAll(true); }; }
+    const lb = h('label', { class: 'chk' }, tools), cb = h('input', { type: 'checkbox' }, lb); cb.checked = S.lzero; h('span', {}, lb, 'Ilma täpsete nullideta'); cb.onchange = () => { S.lzero = cb.checked; renderAll(true); };
+    if (S.lstack) stateLegend(card);
+    const units = S.lunit === -1 ? M.uhikud.map((u, i) => ({ u, i })).filter(({ u }) => u.tase === 'okosusteem' && S.ecos.has(u.eco)).map(({ i }) => i) : [S.lunit];
+    const rows = visLayers().map(({ t, i }) => ({ t, i, P: pooled(i, units, S.lzero) })).filter((r) => r.P);
+    const skew = (r) => { const med = quantile(r.P.spec, r.P.total, 0.5), hi = quantile(r.P.spec, r.P.total, 0.95); return med !== null && hi ? med / hi : 1; };
+    if (S.lsort === 'zero') rows.sort((a, b) => b.P.zero - a.P.zero); else if (S.lsort === 'skew') rows.sort((a, b) => skew(a) - skew(b));
+    const wrap = h('div', {}, card); let last = null, grid = null;
+    for (const r of rows) {
+      if (S.lsort === 'grupp') { if (r.t.grupp !== last) { h('h3', {}, wrap, r.t.grupp); grid = h('div', { class: 'minis big' }, wrap); last = r.t.grupp; } }
+      else if (!grid) grid = h('div', { class: 'minis big' }, wrap);
+      layerTile(grid, r.t, r.i, units, { stack: S.lstack, noZero: S.lzero });
+    }
+    if (!rows.length) h('p', { class: 'empty' }, card, 'Valitud filtritele ei vasta ühtegi jaotust.');
+    const missing = visLayers().filter(({ i }) => !D.distSpec[i]).map(({ t }) => t.nimi);
+    if (missing.length) h('p', { class: 'note' }, card, `Pikslitaseme jaotust ei ole (uuriv segumudel / jäme ruudustik): ${missing.join('; ')}.`);
+    h('p', { class: 'note' }, card, 'Iga kaardi y-telg on kaardi sees normeeritud (kõrgeim tulp = ülaserv; väärtus nurgas), kuna eesmärk on jaotuse kuju. Ruutjuure skaalal kihtidel (viltused jaotused) on x-telje sildid mittelineaarselt paigas. „Sama kuju“ tähendab, et seisundikaupa jaotuste kattuvus on kõigis ökosüsteemides ≥ 97 % (kihid erinevad skaala poolest, nt kg vs EUR).');
+    const det = h('details', { class: 'fwrap' }, card); h('summary', {}, det, 'Mida õppisime kolleegi graafikust ja kuidas seda siin parandati');
+    const sc = h('div', { class: 'scroll' }, det), t = h('table', { class: 'ideas-t' }, sc), hd = h('tr', {}, h('thead', {}, t));
+    for (const c of ['Kolleegi graafikul', 'Miks see segab', 'Siin']) h('th', {}, hd, c);
+    const tb = h('tbody', {}, t);
+    for (const r of [
+      ['Y-telg on pikslite arv (1e7, 1e8)', 'paneele ei saa omavahel võrrelda; 930 m ja 5–10 m kihtidel on arvud erineva suurusjärguga', 'osakaal (%) ja „kõrgeim tulp“ märge'],
+      ['Pealkiri on failinimi', 'ekspert peab nime meelde tuletama; pikad nimed jooksevad kokku', 'teenuse nimi + grupp + ühik; rühmitamine'],
+      ['Kõik pikslid ühes tulbas', 'ei näita, kas jaotus sõltub seisundist (projekti põhiküsimus)', 'virnastatud tulbad seisundi värvides'],
+      ['Täpne null domineerib', 'ülejäänud jaotus on nähtamatu', 'nullide osakaal sildina; lüliti „ilma täpsete nullideta“; järjestus nullide järgi'],
+      ['Telje sildid nagu 26.88 või 79.1845; sama joonis diskreetsetele ja pidevatele kihtidele', 'sildid on müra; skoorid vajavad tulpi, pidevad kihid histogrammi', 'ümmargused teljesildid; diskreetsed kihid tulpadena'],
+      ['Viltused jaotused lineaarsel teljel', 'tipp surutakse vasakule, saba on tühi', 'ruutjuure telg viltustel kihtidel (märgitud)'],
+      ['Mõned paneelid näevad identsed', 'dubleerivad infot', 'kontrollitud kattuvusega; märge „sama kuju kui …“'],
+    ]) { const tr = h('tr', {}, tb); for (const c of r) h('td', {}, tr, c); }
   }
 
   function levelsChart(card, li, ui) {
@@ -601,7 +854,7 @@
     });
     h('text', { x: m.l, y: H - 8 }, svg, 'algne seisundiklass (A = parim)');
     const lg = h('ul', { class: 'legend' }, card);
-    D.meta.seisundid.forEach((s, i) => { const li2 = h('li', {}, lg); h('span', { class: 'sw', style: `--c:${stateColor(i)}` }, li2); h('span', {}, li2, s); });
+    D.meta.seisundid.forEach((s, i) => { const li2 = h('li', {}, lg); swatch(li2, i); h('span', {}, li2, s); });
   }
 
   function pairTable(card, li, ui) {
@@ -659,7 +912,7 @@
     }
     if (!n) h('p', { class: 'empty' }, card, 'Selles üksuses pole ühtegi teenust, millel oleks andmed kõigis kolmes seisundis.');
     const lg = h('ul', { class: 'legend' }, card);
-    M.seisundid.forEach((s, i) => { const li2 = h('li', {}, lg); h('span', { class: 'sw dot', style: `--c:${stateColor(i)}` }, li2); h('span', {}, li2, s); });
+    M.seisundid.forEach((s, i) => { const li2 = h('li', {}, lg); swatch(li2, i); h('span', {}, li2, s); });
   }
 
   /* ---------- Tabel ---------- */
@@ -754,7 +1007,7 @@
     renderFilters(keep); renderTabs();
     const root = $('#view'); root.replaceChildren();
     tipHide();
-    ({ ulevaade: heatmap, teenus: detail, profiil: profile, jaotused: distTab, tabel: table, meetod: method })[S.tab](root);
+    ({ ulevaade: heatmap, teenus: detail, profiil: profile, jaotused: distTab, kihid: layersTab, tabel: table, meetod: method })[S.tab](root);
     const n = tableRows().length; const c = $('#count'); if (c) c.textContent = `${n} sobivat hinnangut`;
   }
   async function main() {
