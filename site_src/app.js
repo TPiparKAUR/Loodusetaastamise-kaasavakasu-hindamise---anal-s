@@ -121,19 +121,53 @@
   const filtersActive = () => S.sig !== 'all' || S.minRel > 0;
 
   /* ---------- filtririda ---------- */
-  function seg(parent, label, opts, get, set, cls) {
-    const g = h('div', { class: `fgrp ${cls || ''}` }, parent); h('span', { class: 'lbl' }, g, label);
+
+  /* ---------- filtrite selgitused (info-nupud) ---------- */
+  const INFO = {
+    tase: ['Tase', ['Ökosüsteem: neli suurt rühma (rohumaad, sood, metsad, põllumaad). Rannikud ning asustus ja muu on baaskaardil „seisundita” ja analüüsis puuduvad.', 'Alamökosüsteem: täpsem baaskaardi tüüp (nt Salumets, 6410 sinihelmikaniidud). Lehel on alamökosüsteemid, millel on vähemalt kaks seisundit.']],
+    okosusteem: ['Ökosüsteem', ['Piirab, milliste ökosüsteemide tulemused näidatakse. Algsed seisundiklassid (A–F) on ökosüsteemiti erinevad, seepärast võrreldakse seisundeid alati ühe ökosüsteemi sees.']],
+    alam: ['Alamökosüsteem', ['Vali konkreetsed alamökosüsteemid. Kui valikut pole, näidatakse valitud ökosüsteemide suurima pindalaga alamökosüsteeme (arvu määrab „Kui valikut pole: suurimaid”).', 'Pindala (km²) on kolme seisundi summa baaskaardil.']],
+    alamN: ['Kui valikut pole: suurimaid', ['Mitu suurima pindalaga alamökosüsteemi kuvatakse, kui sa neid ise ei vali.']],
+    grupp: ['Teenusegrupp', ['ELME kihitabeli teemarühm (nt Loodusannid, Puhverdavad teenused). Piirab, milliseid teenuseid näidatakse.']],
+    omadus: ['Omadus', ['biofüüsikaline: väärtus füüsikalistes ühikutes (nt t C/ha, kg/ha).', 'rahaline: rahaline hinnang (EUR/ha).', 'muu: indeks või skoor (nt elupaikade säilitamine 0–10).', 'Allikas: ametlik kihitabel (veerg properties).']],
+    teenus: ['Teenus', ['Valik analüüsitud teenustest (kihitabelis eval = TRUE). Mõnel teenusel on tulemus ainult teatud ökosüsteemides (nt metsa puitse biomassi süsinik ainult metsades).', 'Ühik on kihitabelist; kus tabel ühikut ei nimeta, on see tühi.']],
+    paar: ['Seisundipaar', ['Mida võrreldakse: halvem → parem seisund. Muutus Δ = parema seisundi keskmine − halvema seisundi keskmine; suhteline muutus = Δ jagatud halvema seisundi keskmisega.', 'Seisundid on ühtlustatud kolmeks klassiks (vilets, keskmine, hea); need tulevad ökosüsteemiti erinevatest algklassidest A–F.', 'Kuumkaart kasutab valitud paari (valikul „kõik” paari vilets → hea); tabel näitab valitud paari või kõiki kolme; profiil näitab alati paari vilets → hea.']],
+    hinnang: ['Hinnang: paaritatud ja paaritamata', ['Paaritatud (soovitatav): võrdleb seisundeid, mis esinevad samas 1 km plokis ja samas alamökosüsteemis (kummaski vähemalt 1 ha). Nii ei sega asukoht (mullastik, kliima) ega alamökosüsteemide erinev koosseis. Ökosüsteemi tulemus on kõigi selliste paaride kaalutud keskmine.', 'Paaritamata: kõigi pikslite keskmiste vahe valitud seisundite vahel. Kasutab kõiki andmeid, kuid kui nt „hea” esineb teistes piirkondades või alamökosüsteemides kui „vilets”, läheb see erinevus muutusesse (ökosüsteemi tasemel on see toorhinnang).', 'Kui hinnangud lähevad lahku (eriti vastupidise märgiga), mõjutab tulemust asukoht või koosseis.']],
+    olulisus: ['Olulisus', ['oluline: FDR-korrigeeritud q < 0,05. Olulisus tuleb 10 × 10 km klastrite bootstrapist (arvestab ruumilist sõltuvust) ja Benjamini–Hochbergi mitmese testimise parandusest. Hinnang vajab vähemalt 20 paari (paaritamata: plokki) ja 5 klastrit.', 'oluline mõlemal hinnangul: nii paaritatud kui paaritamata hinnang on olulised ja sama märgiga.', 'Statistiline olulisus ei tähenda, et muutus on suur; suuruse piiramiseks kasuta filtrit „Min |muutus|”.']],
+    minrel: ['Min |muutus|', ['Peidab hinnangud, mille suhteline muutus (% halvema seisundi keskmisest) on absoluutväärtuselt valitud lävest väiksem. 0 % = kõik. Praktilise tähtsuse piiri valid sina; seda ei ole ette seatud.']],
+  };
+  let infoKey = null;
+  function renderInfo() {
+    const box = $('#infopanel'); if (!box) return;
+    box.replaceChildren();
+    if (!infoKey || !INFO[infoKey]) { box.hidden = true; return; }
+    const [title, paras] = INFO[infoKey]; box.hidden = false;
+    const x = h('button', { type: 'button', class: 'ghost x', 'aria-label': 'Sulge selgitus' }, box, '×'); x.onclick = () => { infoKey = null; renderInfo(); renderFilters(true); };
+    h('h4', {}, box, title); for (const t of paras) h('p', {}, box, t);
+  }
+  function infoBtn(parent, key, label) {
+    const b = h('button', { type: 'button', class: 'info', 'aria-label': `Info: ${label}`, 'aria-expanded': String(infoKey === key), 'aria-controls': 'infopanel' }, parent, 'i');
+    b.onclick = (e) => { e.preventDefault(); infoKey = infoKey === key ? null : key; renderInfo(); renderFilters(true); };
+    return b;
+  }
+  function lbl(g, text, key, forId) {
+    const l = h(forId ? 'label' : 'span', forId ? { for: forId, class: 'lbl' } : { class: 'lbl' }, g, text);
+    if (key) infoBtn(l, key, INFO[key][0]);
+    return l;
+  }
+  function seg(parent, label, opts, get, set, cls, info) {
+    const g = h('div', { class: `fgrp ${cls || ''}` }, parent); lbl(g, label, info);
     const s = h('div', { class: 'seg', role: 'group', 'aria-label': label }, g);
     for (const [v, t] of opts) { const b = h('button', { type: 'button', 'aria-pressed': String(get() === v) }, s, t); b.onclick = () => { set(v); renderAll(); }; }
     return g;
   }
-  function chips(parent, label, items, setObj) {
-    const g = h('div', { class: 'fgrp' }, parent); h('span', { class: 'lbl' }, g, label);
+  function chips(parent, label, items, setObj, info) {
+    const g = h('div', { class: 'fgrp' }, parent); lbl(g, label, info);
     const c = h('div', { class: 'chips' }, g);
     for (const [v, t] of items) { const b = h('button', { type: 'button', class: 'chip', 'aria-pressed': String(setObj.has(v)) }, c, t); b.onclick = () => { setObj.has(v) ? setObj.delete(v) : setObj.add(v); renderAll(); }; }
   }
   function dropdown(parent, label, summary, sections, opts = {}) {
-    const g = h('div', { class: 'fgrp' }, parent); h('span', { class: 'lbl' }, g, label);
+    const g = h('div', { class: 'fgrp' }, parent); lbl(g, label, opts.info);
     const d = h('details', { class: 'dd' }, g); h('summary', { class: 'sel' }, d, summary);
     const p = h('div', { class: 'dd-panel' }, d);
     let q = null;
@@ -162,35 +196,36 @@
     const sy = scrollY;
     box.replaceChildren();
     const M = D.meta;
-    seg(box, 'Tase', [['okosusteem', 'Ökosüsteem'], ['alam', 'Alamökosüsteem']], () => S.level, (v) => { S.level = v; });
+    seg(box, 'Tase', [['okosusteem', 'Ökosüsteem'], ['alam', 'Alamökosüsteem']], () => S.level, (v) => { S.level = v; }, '', 'tase');
     const ecoItems = M.uhikud.filter((u) => u.tase === 'okosusteem').map((u) => [u.kood, u.nimi]);
-    chips(box, 'Ökosüsteem', ecoItems, S.ecos);
+    chips(box, 'Ökosüsteem', ecoItems, S.ecos, 'okosusteem');
     if (S.level === 'alam') {
       const items = M.uhikud.map((u, i) => ({ u, i })).filter(({ u }) => u.tase === 'alam' && S.ecos.has(u.eco)).sort((a, b) => a.u.eco - b.u.eco || unitArea(b.i) - unitArea(a.i));
       dropdown(box, 'Alamökosüsteem', S.alamSel.size ? `${S.alamSel.size} valitud` : `${Math.min(S.alamN, items.length)} suurimat`,
-        [{ items: items.map(({ u, i }) => ({ label: u.nimi, small: `${nf(0).format(unitArea(i))} km²`, get: () => S.alamSel.has(i), set: (v) => (v ? S.alamSel.add(i) : S.alamSel.delete(i)) })) }], { search: true });
-      const g = h('div', { class: 'fgrp' }, box); h('label', { for: 'alamN' }, g, 'Kui valikut pole: suurimaid');
+        [{ items: items.map(({ u, i }) => ({ label: u.nimi, small: `${nf(0).format(unitArea(i))} km²`, get: () => S.alamSel.has(i), set: (v) => (v ? S.alamSel.add(i) : S.alamSel.delete(i)) })) }], { search: true, info: 'alam' });
+      const g = h('div', { class: 'fgrp' }, box); lbl(g, 'Kui valikut pole: suurimaid', 'alamN', 'alamN');
       const sel = h('select', { id: 'alamN' }, g);
       for (const n of [6, 12, 20, 40]) { const o = h('option', { value: n }, sel, String(n)); if (n === S.alamN) o.selected = true; }
       sel.onchange = () => { S.alamN = +sel.value; renderAll(); };
     }
     const groups = [...new Set(M.teenused.map((t) => t.grupp))];
-    dropdown(box, 'Teenusegrupp', `${S.groups.size}/${groups.length}`, [{ items: groups.map((g) => ({ label: g, get: () => S.groups.has(g), set: (v) => (v ? S.groups.add(g) : S.groups.delete(g)) })) }]);
-    chips(box, 'Omadus', [['biofüüsikaline', 'biofüüsikaline'], ['rahaline', 'rahaline'], ['muu', 'muu']], S.props);
+    dropdown(box, 'Teenusegrupp', `${S.groups.size}/${groups.length}`, [{ items: groups.map((g) => ({ label: g, get: () => S.groups.has(g), set: (v) => (v ? S.groups.add(g) : S.groups.delete(g)) })) }], { info: 'grupp' });
+    chips(box, 'Omadus', [['biofüüsikaline', 'biofüüsikaline'], ['rahaline', 'rahaline'], ['muu', 'muu']], S.props, 'omadus');
     const secs = groups.map((g) => ({ title: g, items: M.teenused.filter((t) => t.grupp === g).map((t) => ({ label: t.nimi, small: t.uhik, get: () => S.layers.has(t.id), set: (v) => (v ? S.layers.add(t.id) : S.layers.delete(t.id)) })) }));
-    dropdown(box, 'Teenus', `${S.layers.size}/${M.teenused.length}`, secs, { search: true });
-    seg(box, 'Seisundipaar (halvem → parem)', [...M.paarid.map((p, i) => [i, p.replace('→', ' → ')]), ['*', 'kõik']], () => S.pair, (v) => { S.pair = v; });
-    seg(box, 'Hinnang', [['m', 'Paaritatud'], ['u', 'Paaritamata']], () => S.est, (v) => { S.est = v; });
-    const g = h('div', { class: 'fgrp' }, box); h('label', { for: 'sigsel' }, g, 'Olulisus');
+    dropdown(box, 'Teenus', `${S.layers.size}/${M.teenused.length}`, secs, { search: true, info: 'teenus' });
+    seg(box, 'Seisundipaar (halvem → parem)', [...M.paarid.map((p, i) => [i, p.replace('→', ' → ')]), ['*', 'kõik']], () => S.pair, (v) => { S.pair = v; }, '', 'paar');
+    seg(box, 'Hinnang', [['m', 'Paaritatud'], ['u', 'Paaritamata']], () => S.est, (v) => { S.est = v; }, '', 'hinnang');
+    const g = h('div', { class: 'fgrp' }, box); lbl(g, 'Olulisus', 'olulisus', 'sigsel');
     const ss = h('select', { id: 'sigsel' }, g);
     for (const [v, t] of [['all', 'kõik hinnangud'], ['sig', 'oluline (FDR q < 0,05)'], ['both', 'oluline mõlemal hinnangul']]) { const o = h('option', { value: v }, ss, t); if (S.sig === v) o.selected = true; }
     ss.onchange = () => { S.sig = ss.value; renderAll(); };
-    const g2 = h('div', { class: 'fgrp' }, box); const l2 = h('label', { for: 'minrel' }, g2, `Min |muutus|: ${S.minRel} %`);
+    const g2 = h('div', { class: 'fgrp' }, box); const l2w = lbl(g2, '', 'minrel', 'minrel'); const l2 = h('span', {}, null, `Min |muutus|: ${S.minRel} %`); l2w.prepend(l2);
     const rg = h('input', { type: 'range', id: 'minrel', min: 0, max: 200, step: 5, value: S.minRel }, g2);
     rg.oninput = () => { l2.textContent = `Min |muutus|: ${rg.value} %`; }; rg.onchange = () => { S.minRel = +rg.value; renderAll(true); };
     const rs = h('button', { type: 'button', class: 'ghost' }, box, 'Lähtesta'); rs.onclick = () => { initState(); renderAll(); };
     h('span', { class: 'count', id: 'count' }, box, '');
     if (keepOpen) box.querySelectorAll('details.dd').forEach((d, i) => { d.open = !!opened[i]; });
+    renderInfo();
     scrollTo(0, sy);
   }
 
