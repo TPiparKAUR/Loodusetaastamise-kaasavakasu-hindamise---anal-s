@@ -444,7 +444,7 @@
     const lg = h('ul', { class: 'legend' }, card);
     series.forEach((d, st) => {
       if (!d) return; const c = D.byCell.get(`${li}|${ui}|${st}`); const li2 = h('li', {}, lg); h('span', { class: 'sw', style: `--c:${stateColor(st)}` }, li2);
-      h('span', {}, li2, `${D.meta.seisundid[st]}${c ? ` · keskmine ${fmt(c.mean)}` : ''}${d.zero >= 500 ? ` · täpselt 0: ${nf(0).format(d.zero / 100)} %` : ''}`);
+      h('span', {}, li2, `${D.meta.seisundid[st]}${c ? ` · aritmeetiline keskmine ${fmt(c.mean)}` : ''}${d.zero >= 500 ? ` · täpselt 0: ${nf(0).format(d.zero / 100)} %` : ''}`);
     });
     const cmp = [[0, 1], [1, 2], [0, 2]].filter(([a, b]) => series[a] && series[b]);
     if (cmp.length) {
