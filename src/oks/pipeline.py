@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import multiprocessing as mp
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
 
+import numpy as np
 import polars as pl
+from numpy.typing import NDArray
 
-from . import aggregate, baas, catalog, config, fetch
+from . import aggregate, baas, catalog, config, fetch, hist
 
 log = logging.getLogger(__name__)
 
@@ -17,11 +21,50 @@ log = logging.getLogger(__name__)
 MAX_RES_M = 10
 
 
-def _load_lut() -> tuple[object, int]:
+def _load_lut() -> tuple[NDArray[np.int16], int]:
     used = pl.read_parquet(config.DERIVED / "klassid_kasutusel.parquet")
     classes = pl.read_parquet(config.DERIVED / "klassid.parquet")
     lut, _ = baas.class_lut(classes)
     return lut, used.height
+
+
+def hist_paths(layer_id: str) -> tuple[Path, Path]:
+    """Jaotuse (histogrammi) failid: loendused (Parquet) ja vahemike kirjeldus (JSON)."""
+    return config.BLOCKS / f"{layer_id}__hist.parquet", config.BLOCKS / f"{layer_id}__hist.json"
+
+
+def write_hist(layer_id: str, spec: hist.HistSpec, counts: np.ndarray) -> None:
+    """Kirjuta jaotuse loendused (``cls, bin, n``; ``bin == n_bins`` on täpsete nullide arv) ja vahemikud."""
+    pq, js = hist_paths(layer_id)
+    cls, b = np.nonzero(counts)
+    pl.DataFrame(
+        {"cls": cls.astype(np.int16), "bin": b.astype(np.int16), "n": counts[cls, b].astype(np.int64)}
+    ).write_parquet(pq, compression="zstd")
+    js.write_text(json.dumps(spec.to_dict()), encoding="utf-8")
+
+
+def _aggregate_with_hist(
+    layer_id: str,
+    src: Path,
+    tif_name: str,
+    invalid: tuple[float, ...],
+    baas_det: Path,
+    lut: NDArray[np.int16],
+    n_cls: int,
+) -> pl.DataFrame:
+    spec = hist.choose_spec(src, baas_det, lut, invalid)
+    counts = np.zeros((n_cls, spec.n_bins + 1), dtype=np.int64)
+    df = aggregate.aggregate_layer(
+        aggregate.LayerSpec(layer_id, tif_name, invalid),
+        src,
+        baas_det,
+        lut,
+        n_cls,
+        spec,
+        counts,
+    )
+    write_hist(layer_id, spec, counts)
+    return df
 
 
 def process_layer(
@@ -35,7 +78,7 @@ def process_layer(
     fetch.download(rel, dest)
     t1 = time.time()
     baas_det = fetch.download(config.BAAS_DET, config.CACHE / config.BAAS_DET)
-    df = aggregate.aggregate_layer(aggregate.LayerSpec(layer_id, rel, invalid), dest, baas_det, lut, n_cls)  # type: ignore[arg-type]
+    df = _aggregate_with_hist(layer_id, dest, rel, invalid, baas_det, lut, n_cls)
     config.BLOCKS.mkdir(parents=True, exist_ok=True)
     df.write_parquet(out, compression="zstd")
     if not keep_raw:
@@ -65,7 +108,7 @@ def run(workers: int = 3, only: set[str] | None = None, force: bool = False) -> 
     for r in ev.iter_rows(named=True):
         if only and r["id"] not in only:
             continue
-        if not force and (config.BLOCKS / f"{r['id']}.parquet").exists():
+        if not force and (config.BLOCKS / f"{r['id']}.parquet").exists() and hist_paths(r["id"])[0].exists():
             continue
         jobs.append((r["id"], r["fail"], catalog.EXTRA_INVALID.get(r["id"], ())))
     log.info("%d kihti töötlemisel", len(jobs))
@@ -118,14 +161,14 @@ def run_fields(force: bool = False) -> pl.DataFrame:
     rows = []
     for lid, gpkg, attr, tif in FIELD_LAYERS:
         out = config.BLOCKS / f"{lid}.parquet"
-        if out.exists() and not force:
+        if out.exists() and hist_paths(lid)[0].exists() and not force:
             continue
         t0 = time.time()
         src = config.DERIVED / "vektor_raster" / tif
         if not src.exists():
             mapper = fields.value_class_to_number if attr == "vaartusklass" else None
             fields.rasterize_attribute(fields.cached_gpkg(gpkg), attr, src, mapper)
-        df = aggregate.aggregate_layer(aggregate.LayerSpec(lid, tif), src, baas_det, lut, n_cls)  # type: ignore[arg-type]
+        df = _aggregate_with_hist(lid, src, tif, (), baas_det, lut, n_cls)
         config.BLOCKS.mkdir(parents=True, exist_ok=True)
         df.write_parquet(out, compression="zstd")
         rows.append(

@@ -1,14 +1,9 @@
 name: Veebileht
 
+# Ehitab saidi igal pushil (kontrolliks) ja avaldab GitHub Pages'is ainult repo VAIKEHARUST,
+# olenemata selle nimest. Vajab: Settings -> Pages -> Build and deployment -> Source = "GitHub Actions".
 on:
-  # Vajab: Settings -> Pages -> Source = "GitHub Actions".
   push:
-    branches: [main]
-    paths:
-      - site_src/**
-      - data/tulemused/**
-      - src/oks/export.py
-      - src/oks/sitebuild.py
   workflow_dispatch:
 
 permissions:
@@ -17,8 +12,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -29,12 +24,20 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
       - run: uv run python -m oks site --out _site
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - name: Kontrolli, et leht ja andmed on olemas
+        run: |
+          test -s _site/index.html
+          test -s _site/data/paarid.json
+          test -s _site/oks-seisund.html
+      - if: github.ref_name == github.event.repository.default_branch
+        uses: actions/configure-pages@v5
+      - if: github.ref_name == github.event.repository.default_branch
+        uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
+    if: github.ref_name == github.event.repository.default_branch
     needs: build
     runs-on: ubuntu-latest
     environment:

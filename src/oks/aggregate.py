@@ -21,6 +21,7 @@ from rasterio.warp import Resampling, reproject
 from rasterio.windows import Window
 
 from . import config
+from .hist import HistSpec, bin_index
 
 log = logging.getLogger(__name__)
 
@@ -66,7 +67,13 @@ def _baas_chunk(
 
 
 def aggregate_layer(
-    spec: LayerSpec, src: Path, baas_det: Path, lut: NDArray[np.int16], n_classes: int
+    spec: LayerSpec,
+    src: Path,
+    baas_det: Path,
+    lut: NDArray[np.int16],
+    n_classes: int,
+    hist: HistSpec | None = None,
+    hist_counts: NDArray[np.int64] | None = None,
 ) -> pl.DataFrame:
     """Koonda üks teenuse raster plokkide kaupa.
 
@@ -82,6 +89,9 @@ def aggregate_layer(
         Tulemus ``baas.class_lut``-ist.
     n_classes
         Klasside arv (``lut`` max väärtus + 1).
+    hist, hist_counts
+        Valikuline jaotus: ``hist`` on vahemikud (``hist.choose_spec``) ja ``hist_counts`` täidetav
+        massiiv kujuga ``(n_classes, hist.n_bins + 1)``; viimane veerg on täpsete nullide arv.
 
     Returns
     -------
@@ -116,6 +126,15 @@ def aggregate_layer(
             col = np.broadcast_to(col_inv, val.shape)[ok].astype(np.int64)
             key = idx[ok].astype(np.int64) + n_classes * col
             x = val[ok].astype(np.float64)
+            if hist is not None and hist_counts is not None:
+                cls_ok = idx[ok].astype(np.int64)
+                nb = hist.n_bins
+                hist_counts[:, :nb] += np.bincount(
+                    cls_ok * nb + bin_index(x, hist), minlength=n_classes * nb
+                ).reshape(n_classes, nb)
+                zero = x == 0
+                if zero.any():
+                    hist_counts[:, nb] += np.bincount(cls_ok[zero], minlength=n_classes)
             size = n_classes * col_vals.size
             n = np.bincount(key, minlength=size)
             s1 = np.bincount(key, weights=x, minlength=size)
