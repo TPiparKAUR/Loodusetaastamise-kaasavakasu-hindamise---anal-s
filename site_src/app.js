@@ -66,7 +66,7 @@
   /* ---------- andmed ---------- */
   let D; // {meta, P, L, K, byPair, byCell}
   async function load() {
-    const raw = window.__OKS__ || Object.fromEntries(await Promise.all(['meta', 'paarid', 'lahtrid', 'klassid', 'jaotused'].map(async (n) => {
+    const raw = window.__OKS__ || Object.fromEntries(await Promise.all(['meta', 'paarid', 'lahtrid', 'klassid', 'jaotused', 'kaasnev', 'tendus', 'nouded'].map(async (n) => {
       try { const r = await fetch(`data/${n}.json`); return [n, r.ok ? await r.json() : null]; } catch { return [n, null]; }
     })));
     const meta = raw.meta;
@@ -80,11 +80,12 @@
     const dist = new Map(); const distSpec = (raw.jaotused && raw.jaotused.spec) || {};
     for (const [l, u, st, shares, zero] of (raw.jaotused ? raw.jaotused.rows : [])) dist.set(`${l}|${u}|${st}`, { shares, zero });
     D = { meta, P, L, K, byPair, byCell, classMeta, kByLayer, dist, distSpec };
+    D.K = raw.kaasnev || null; D.T = raw.tendus || null; D.N = raw.nouded || null;
   }
 
   /* ---------- olek ---------- */
   const S = {
-    tab: 'ulevaade', level: 'okosusteem', ecos: new Set(), alamSel: new Set(), alamN: 12,
+    sec: 'avaleht', tab: 'ulevaade', level: 'okosusteem', ecos: new Set(), alamSel: new Set(), alamN: 12,
     groups: new Set(), props: new Set(), layers: new Set(), pair: 2, est: 'm', sig: 'all', minRel: 0,
     detail: { layer: 0, unit: 0 }, profUnit: 0, sort: { col: 'rel', dir: -1 },
     dmode: 'over', dzero: false, lunit: -1, lsort: 'grupp', lstack: true, lzero: false,
@@ -231,7 +232,12 @@
   }
 
   /* ---------- vahekaardid ---------- */
-  const TABS = [['ulevaade', 'Ülevaade'], ['teenus', 'Teenuse detail'], ['profiil', 'Profiil'], ['jaotused', 'Jaotused'], ['kihid', 'Kihtide ülevaade'], ['tabel', 'Tabel'], ['meetod', 'Meetod ja piirangud']];
+  const TABS = [['ulevaade', 'Kuumkaart'], ['teenus', 'Teenuse detail'], ['profiil', 'Profiil'], ['jaotused', 'Jaotused'], ['kihid', 'Kihtide ülevaade'], ['tabel', 'Tabel']];
+  const SECTIONS = [['avaleht', 'Avaleht'], ['tulemused', 'Tulemustabel'], ['stsenaarium', 'Stsenaarium'], ['kvalit', 'Kvalitatiivne'], ['analuus', 'Statistiline analüüs'], ['lahteulesanne', 'Lähteülesande täitmine'], ['meetod', 'Meetod']];
+  function renderSections() {
+    const n = $('#sections'); n.replaceChildren();
+    for (const [k, t] of SECTIONS) { const a = h('a', { href: `#${k}`, class: 'sec', 'aria-current': S.sec === k ? 'page' : null }, n, t); a.onclick = (e) => { e.preventDefault(); navTo(k); }; }
+  }
   function renderTabs() {
     const n = $('#tabs'); n.replaceChildren();
     for (const [k, t] of TABS) { const b = h('button', { role: 'tab', type: 'button', 'aria-selected': String(S.tab === k) }, n, t); b.onclick = () => { S.tab = k; renderAll(true); }; }
@@ -996,6 +1002,8 @@
     h('p', { class: 'note' }, card, `Analüüs koostatud ${M.koostatud}. Andmeallikas: ELME kihid (KAUR). Kasutustingimused: kontrolli enne taasavaldamist.`);
   }
 
+/*@@SECTIONS@@*/
+
   /* ---------- koostamine ---------- */
   function initState() {
     const M = D.meta;
@@ -1004,11 +1012,17 @@
     S.layers = new Set(M.teenused.map((t) => t.id)); S.pair = 2; S.est = 'm'; S.sig = 'all'; S.minRel = 0;
   }
   function renderAll(keep) {
-    renderFilters(keep); renderTabs();
-    const root = $('#view'); root.replaceChildren();
-    tipHide();
-    ({ ulevaade: heatmap, teenus: detail, profiil: profile, jaotused: distTab, kihid: layersTab, tabel: table, meetod: method })[S.tab](root);
-    const n = tableRows().length; const c = $('#count'); if (c) c.textContent = `${n} sobivat hinnangut`;
+    renderSections();
+    const an = S.sec === 'analuus', root = $('#view');
+    $('#fwrap').hidden = !an; $('#tabs').hidden = !an;
+    root.replaceChildren(); tipHide();
+    if (an) {
+      renderFilters(keep); renderTabs();
+      ({ ulevaade: heatmap, teenus: detail, profiil: profile, jaotused: distTab, kihid: layersTab, tabel: table })[S.tab](root);
+      const n = tableRows().length; const c = $('#count'); if (c) c.textContent = `${n} sobivat hinnangut`;
+    } else {
+      ({ avaleht: homeView, tulemused: resultsView, stsenaarium: scenarioView, kvalit: qualView, lahteulesanne: briefView, meetod: method })[S.sec](root);
+    }
   }
   async function main() {
     await load(); initState();
@@ -1018,6 +1032,8 @@
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => renderAll(true));
     let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => renderAll(true), 200); });
     if (innerWidth < 900) $('#fdet').open = false;
+    const fromHash = () => { const k = location.hash.slice(1); if (SECTIONS.some(([x]) => x === k)) S.sec = k; };
+    fromHash(); addEventListener('hashchange', () => { fromHash(); renderAll(true); });
     renderAll();
   }
   main().catch((e) => { $('#view').replaceChildren(h('p', { class: 'empty' }, null, `Andmete laadimine ebaõnnestus: ${e.message}. Ava leht veebiserveri kaudu (nt python -m http.server) või kasuta ühefailset varianti.`)); console.error(e); });

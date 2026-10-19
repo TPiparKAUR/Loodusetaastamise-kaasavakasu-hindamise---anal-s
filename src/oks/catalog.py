@@ -85,10 +85,52 @@ UNITS: dict[str, tuple[str, str]] = {
     ),
 }
 
-#: Lisaks NoData-le välistatavad väärtused (tabeli märkuse põhjal).
-EXTRA_INVALID: dict[str, tuple[float, ...]] = {
+#: Lisaks NoData-le välistatavad väärtused.
+EXTRA_INVALID: dict[str, tuple[float, ...]] = {}
+
+#: Väärtused, mis loetakse kehtivaks nulliks (mitte NoData-ks), kui tabelis deklareeritud NoData on 0.
+#: Põhjus: lähtekasu loogikakontroll (100 ha palumetsa, millest 25 ha-l kasvavad mustikad: keskmine
+#: arvutatakse kogu 100 ha kohta, 75 ha loetakse nulliks). Kihtides, kus tabeli NoData on 0, on 0 ühtlasi
+#: „teenust ei ole“ ega ole eristatav puuduvast väärtusest; neist jäetakse teenust mitte pakkuvad
+#: klassid välja positiivse osa läve alusel (``POSITIVE_MIN``). Lisaväärtused: tabeli märkus
+#: ``ohusaaste_puhverdusvoime_2022_5m``: „255 käitub kui 0“.
+ZERO_EXTRA: dict[str, tuple[float, ...]] = {
     "ohusaaste_puhverdusvoime_2022_5m": (255.0,),
 }
+
+#: Lähtekasu (``docs/lahteulesanne.md``) nõuab hindu ja ühte sidusust, mis ei ole tabelis ``eval = TRUE``:
+#: mulla süsiniku varu ja puitse biomassi süsiniku rahaline väärtus ning loodusmaastiku sidusus 1 km raadiuses.
+BRIEF_EXTRA: dict[str, dict[str, str]] = {
+    "mullasusinik_aasta_keskmine_2022_10m": {
+        "grupp": "Globaalne kliimaregulatsioon",
+        "omadus": "rahaline",
+        "uhik": "EUR/ha",
+        "markus": "Mulla süsinikuvaru väärtus (varu, mitte aastane voog), ETS 2022 keskmine börsihind 80,68 EUR/t CO2; tabeli märkus: 'Hind kokku leppida'. Lisakiht lähtekasu alusel",
+    },
+    "mullasusinik_aasta_sotsiaalne_kulu_2022_10m": {
+        "grupp": "Globaalne kliimaregulatsioon",
+        "omadus": "rahaline",
+        "uhik": "EUR/ha",
+        "markus": "Mulla süsinikuvaru väärtus (varu, mitte aastane voog), sotsiaalse kulu hind 169,77 EUR/t CO2 (Rennert et al. 2022). Lisakiht lähtekasu alusel",
+    },
+    "puitne_biomass_c_eur_ha_ets_borsihind_kogu_eesti_sum_2022_5m": {
+        "grupp": "Globaalne kliimaregulatsioon",
+        "omadus": "rahaline",
+        "uhik": "EUR/ha",
+        "markus": "Metsa puitse biomassi süsinikuvaru väärtus (varu, mitte aastane voog), ETS 80,68 EUR/t CO2. Lisakiht lähtekasu alusel",
+    },
+    "sidusus_1km_2022_10m": {
+        "grupp": "Elupaikade säilitamine",
+        "omadus": "muu",
+        "uhik": "osakaal 0-100 (tõlgendus kinnitada)",
+        "markus": "Loodusmaastiku sidusus 1 km raadiuses: heas seisundis looduslike ökosüsteemide osakaal maismaapikslitest 1 km raadiuses. Lähtekas: 'kasutame ühte sidusust (nt 1 km raadiusega loodusmaastik?)'; raadius ja skaala kinnitada. Tabeli märkus: 'Võib vajada teistsugust lähenemist'. Seos seisundiga on osaliselt definitsiooniline (sidusus arvutatud heas seisundis ökosüsteemide osakaalust)",
+    },
+}
+
+#: Klass loetakse teenust mitte pakkuvaks, kui positiivse väärtusega pindala osa on väiksem kui see
+#: (lähtekas: 'kui mõnda teenust jääb mõnda ökosüsteemitüüpi väga-väga vähe, siis järeldame, et see kooslus ei
+#: paku vastavat teenust'). Parameeter, mitte fakt; tulemustabelis on osakaal eraldi veerus.
+POSITIVE_MIN = 0.01
 
 #: Kihid, mille seos seisundiga on definitsiooniline: ``toiduteenus_2022`` (põllukultuuride seisundiklass
 #: langeb kokku väärtusklassiga, kontrollitud) ja ``biotorje_2022`` (kihi kirjelduse järgi arvutatud põllu
@@ -169,9 +211,67 @@ def build_catalogue(meta_csv: Path, inventory_csv: Path) -> pl.DataFrame:
         .map_elements(lambda i: units.get(i, ("", ""))[1], return_dtype=pl.String)
         .alias("markus"),
     )
-    return out
+    extra = BRIEF_EXTRA
+    return out.with_columns(
+        pl.when(pl.col("id").is_in(list(extra)))
+        .then(
+            pl.col("id").replace_strict(
+                {k: v["grupp"] for k, v in extra.items()}, default="", return_dtype=pl.String
+            )
+        )
+        .otherwise(pl.col("grupp"))
+        .alias("grupp"),
+        pl.when(pl.col("id").is_in(list(extra)))
+        .then(
+            pl.col("id").replace_strict(
+                {k: v["omadus"] for k, v in extra.items()}, default="", return_dtype=pl.String
+            )
+        )
+        .otherwise(pl.col("omadus"))
+        .alias("omadus"),
+        pl.when(pl.col("id").is_in(list(extra)))
+        .then(
+            pl.col("id").replace_strict(
+                {k: v["uhik"] for k, v in extra.items()}, default="", return_dtype=pl.String
+            )
+        )
+        .otherwise(pl.col("uhik"))
+        .alias("uhik"),
+        pl.when(pl.col("id").is_in(list(extra)))
+        .then(
+            pl.col("id").replace_strict(
+                {k: v["markus"] for k, v in extra.items()}, default="", return_dtype=pl.String
+            )
+        )
+        .otherwise(pl.col("markus"))
+        .alias("markus"),
+    )
 
 
 def evaluated(cat: pl.DataFrame) -> pl.DataFrame:
-    """Kihid, mida tuleb analüüsida (``eval = TRUE``), v.a. baaskaart."""
-    return cat.filter(pl.col("eval") & (pl.col("grupp_kood") != "baaskaart"))
+    """Kihid, mida tuleb analüüsida: ``eval = TRUE`` (v.a. baaskaart) ja lähtekasu lisakihid (``BRIEF_EXTRA``)."""
+    return cat.filter(
+        (pl.col("eval") & (pl.col("grupp_kood") != "baaskaart")) | pl.col("id").is_in(list(BRIEF_EXTRA))
+    )
+
+
+def zero_values(layer_id: str, nodata: float | None) -> tuple[float, ...]:
+    """Väärtused, mis loetakse kehtivaks nulliks: deklareeritud NoData ``0`` ja ``ZERO_EXTRA``.
+
+    Parameters
+    ----------
+    layer_id
+        Kihi id.
+    nodata
+        Tabelis deklareeritud NoData.
+
+    Returns
+    -------
+    tuple[float, ...]
+        Tühi, kui NoData ei ole 0 ja lisaväärtusi pole.
+    """
+    vals: list[float] = []
+    if nodata is not None and float(nodata) == 0.0:
+        vals.append(0.0)
+    vals.extend(ZERO_EXTRA.get(layer_id, ()))
+    return tuple(dict.fromkeys(vals))

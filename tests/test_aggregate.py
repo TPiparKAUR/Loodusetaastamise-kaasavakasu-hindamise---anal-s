@@ -134,3 +134,57 @@ def test_rejects_wrong_crs(tmp_path: Path, baas: Path, lut: np.ndarray) -> None:
         ds.write(np.ones((10, 10), dtype=np.float32), 1)
     with pytest.raises(ValueError, match="CRS"):
         aggregate.aggregate_layer(aggregate.LayerSpec("t", "t.tif"), src, baas, lut, N_CLASSES)
+
+
+def test_zero_values_count_as_valid_zero(tmp_path: Path, baas: Path, lut: np.ndarray) -> None:
+    """NoData = 0 on kehtiv null (lähtekasu loogikakontroll: 25 ha 100-st, ülejäänud nullid)."""
+    arr = np.zeros((200, 200), dtype=np.uint8)
+    arr[:50, :100] = 8  # 50 x 100 = 5000 positiivset piksilit läänepoolses klassis
+    src = tmp_path / "svc.tif"
+    _write(src, arr, 10.0, 400_000.0, 6_501_000.0, 0.0)  # deklareeritud NoData on 0
+    excl = aggregate.aggregate_layer(aggregate.LayerSpec("t", "t.tif"), src, baas, lut, N_CLASSES)
+    assert excl["n"].sum() == 5000  # vana käitumine: nullid välja
+    incl = aggregate.aggregate_layer(
+        aggregate.LayerSpec("t", "t.tif", zero_values=(0.0,)), src, baas, lut, N_CLASSES
+    )
+    assert incl["n"].sum() == 200 * 200
+    west = incl.filter(incl["cls"] == 0)
+    assert west["sum"].sum() / west["n"].sum() == pytest.approx(8 * 5000 / (100 * 200))
+
+
+def test_extra_zero_value_255_acts_as_zero(tmp_path: Path, baas: Path, lut: np.ndarray) -> None:
+    arr = np.full((200, 200), 4, dtype=np.uint8)
+    arr[:, :20] = 255  # tabeli märkus: 255 käitub kui 0
+    src = tmp_path / "svc.tif"
+    _write(src, arr, 10.0, 400_000.0, 6_501_000.0, 0.0)
+    df = aggregate.aggregate_layer(
+        aggregate.LayerSpec("t", "t.tif", zero_values=(0.0, 255.0)), src, baas, lut, N_CLASSES
+    )
+    assert df["n"].sum() == 200 * 200
+    assert df["sum"].sum() == pytest.approx(4.0 * 200 * 180)
+
+
+def test_class_stats_cover_classes_without_state(tmp_path: Path, baas: Path, lut: np.ndarray) -> None:
+    """Klassitabel hõlmab ka seisundita klassid (rannik) ning loeb kehtivad, nullid ja positiivsed eraldi."""
+    lut_all = np.full(65536, -1, dtype=np.int16)
+    lut_all[10110] = 0
+    lut_all[10141] = 1
+    lut2 = lut.copy()
+    lut2[10141] = -1  # ida pool: seisundita (blokitabelist välja)
+    arr = np.full((200, 200), 2.0, dtype=np.float32)
+    arr[:, 100:] = 0.0
+    arr[0, 100] = -9999.0  # NoData idapoolses klassis
+    src = tmp_path / "svc.tif"
+    _write(src, arr, 10.0, 400_000.0, 6_501_000.0, -9999.0)
+    stats = np.zeros((2, aggregate.N_CLS_STATS), dtype=np.float64)
+    df = aggregate.aggregate_layer(
+        aggregate.LayerSpec("t", "t.tif"), src, baas, lut2, N_CLASSES, lut_all=lut_all, cls_stats=stats
+    )
+    assert set(df["cls"].to_list()) == {0}
+    west, east = stats
+    names = aggregate.CLS_STATS
+    assert west[names.index("n_total")] == 100 * 200 and west[names.index("n_pos")] == 100 * 200
+    assert east[names.index("n_total")] == 100 * 200
+    assert east[names.index("n_valid")] == 100 * 200 - 1
+    assert east[names.index("n_zero")] == 100 * 200 - 1 and east[names.index("n_pos")] == 0
+    assert west[names.index("sum")] == pytest.approx(2.0 * 100 * 200)

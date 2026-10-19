@@ -6,7 +6,7 @@ import argparse
 import logging
 from pathlib import Path
 
-from . import analysis, config, pipeline, report, sitebuild, stats
+from . import analysis, config, indikaatorid, kaasnev, pipeline, report, sitebuild, stats
 
 
 def main() -> None:
@@ -20,6 +20,7 @@ def main() -> None:
     flds.add_argument("--force", action="store_true")
     an = sub.add_parser("analyse", help="statistiline analüüs -> data/tulemused")
     an.add_argument("--sensitivity", action="store_true", help="käivita ka tundlikkuse variandid")
+    sub.add_parser("kaasnev", help="lähtekasu tulemustabelid (tüüp × seisund, suured ökosüsteemid)")
     sub.add_parser("report", help="genereeri docs/tulemused.md ja docs/andmekataloog.md")
     st = sub.add_parser("site", help="ehita veebileht")
     st.add_argument("--out", default="site")
@@ -31,9 +32,12 @@ def main() -> None:
         res = analysis.run()
         if args.sensitivity:
             analysis.sensitivity(stats.Params(), res["paarid"]).write_csv(config.RESULTS / "tundlikkus.csv")
+    elif args.cmd == "kaasnev":
+        kaasnev.build(indikaatorid.all_layers())
     elif args.cmd == "report":
         report.write_catalogue(config.ROOT / "data/teenused.csv", config.DOCS / "andmekataloog.md")
         report.write_results(config.RESULTS, config.DOCS / "tulemused.md")
+        report.write_requirements(config.DOCS / "lahteulesanne.md")
     elif args.cmd == "site":
         sitebuild.build(Path(args.out))
     elif args.cmd == "fields":

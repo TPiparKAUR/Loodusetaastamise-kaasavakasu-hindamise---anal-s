@@ -33,6 +33,50 @@ class LayerSpec:
     id: str
     rel: str
     invalid: tuple[float, ...] = field(default_factory=tuple)
+    zero_values: tuple[float, ...] = field(default_factory=tuple)
+
+
+#: Veerud klassitabelis ``cls_stats`` (kujuga ``(klasse, N_CLS_STATS)``).
+CLS_STATS = ("n_total", "n_valid", "n_zero", "n_pos", "n_neg", "sum", "sumsq")
+N_CLS_STATS = len(CLS_STATS)
+
+
+def validity(
+    val: NDArray[np.generic],
+    mask: NDArray[np.bool_],
+    invalid: NDArray[np.float64],
+    zero_values: tuple[float, ...],
+) -> tuple[NDArray[np.bool_], NDArray[np.generic]]:
+    """Kehtivate pikslite mask ja väärtused (``zero_values`` loetakse kehtivaks nulliks).
+
+    Parameters
+    ----------
+    val
+        Rastri väärtused.
+    mask
+        GDAL-i kehtivuse mask (``read_masks > 0``); NoData väärtuse pikslid on ``False``.
+    invalid
+        Lisaks välistatavad sentinel-väärtused.
+    zero_values
+        Väärtused, mis tähendavad „teenust ei ole“ ja loetakse nulliks (ka siis, kui need on NoData).
+
+    Returns
+    -------
+    tuple[NDArray[np.bool_], NDArray[np.generic]]
+        ``ok`` ja väärtused, kus ``zero_values`` on asendatud nulliga.
+    """
+    ok = mask.copy()
+    if val.dtype.kind == "f":
+        ok &= np.isfinite(val)
+    if invalid.size:
+        ok &= ~np.isin(val, invalid.astype(val.dtype))
+    if zero_values:
+        zero = np.isin(val, np.asarray(zero_values, dtype=val.dtype))
+        ok |= zero
+        if val.dtype.kind == "f":
+            ok &= np.isfinite(val) | zero
+        val = np.where(zero, np.zeros((), dtype=val.dtype), val)
+    return ok, val
 
 
 def _row_runs(ds: rasterio.DatasetReader) -> list[tuple[int, int, int]]:
@@ -66,6 +110,33 @@ def _baas_chunk(
     return dst
 
 
+def _accumulate_classes(
+    codes: NDArray[np.uint16],
+    val: NDArray[np.generic],
+    ok: NDArray[np.bool_],
+    lut_all: NDArray[np.int16],
+    cls_stats: NDArray[np.float64],
+) -> None:
+    """Lisa ühe ploki-rea klassistatistika (kõik baaskaardi klassid) massiivi ``cls_stats``."""
+    n_cls = cls_stats.shape[0]
+    ci = lut_all[codes].astype(np.int64)
+    inside = ci >= 0
+    if not inside.any():
+        return
+    cls_stats[:, 0] += np.bincount(ci[inside], minlength=n_cls)
+    sel = inside & ok
+    if not sel.any():
+        return
+    c = ci[sel]
+    x = val[sel].astype(np.float64)
+    cls_stats[:, 1] += np.bincount(c, minlength=n_cls)
+    cls_stats[:, 2] += np.bincount(c[x == 0], minlength=n_cls)
+    cls_stats[:, 3] += np.bincount(c[x > 0], minlength=n_cls)
+    cls_stats[:, 4] += np.bincount(c[x < 0], minlength=n_cls)
+    cls_stats[:, 5] += np.bincount(c, weights=x, minlength=n_cls)
+    cls_stats[:, 6] += np.bincount(c, weights=x * x, minlength=n_cls)
+
+
 def aggregate_layer(
     spec: LayerSpec,
     src: Path,
@@ -74,6 +145,8 @@ def aggregate_layer(
     n_classes: int,
     hist: HistSpec | None = None,
     hist_counts: NDArray[np.int64] | None = None,
+    lut_all: NDArray[np.int16] | None = None,
+    cls_stats: NDArray[np.float64] | None = None,
 ) -> pl.DataFrame:
     """Koonda üks teenuse raster plokkide kaupa.
 
@@ -92,6 +165,11 @@ def aggregate_layer(
     hist, hist_counts
         Valikuline jaotus: ``hist`` on vahemikud (``hist.choose_spec``) ja ``hist_counts`` täidetav
         massiiv kujuga ``(n_classes, hist.n_bins + 1)``; viimane veerg on täpsete nullide arv.
+    lut_all, cls_stats
+        Valikuline klassitabel KÕIGI baaskaardi klasside kohta (ka seisundita ja rannik): ``lut_all`` on
+        ``kood -> klassiindeks`` (``-1`` = klassita) ja ``cls_stats`` täidetav massiiv kujuga
+        ``(klasse, N_CLS_STATS)`` (veerud ``CLS_STATS``): pikslid kokku, kehtivad, nullid, positiivsed,
+        negatiivsed, Σx, Σx².
 
     Returns
     -------
@@ -114,12 +192,11 @@ def aggregate_layer(
         for r0, r1, brow in _row_runs(ds):
             win = Window(0, r0, ds.width, r1 - r0)
             val = ds.read(1, window=win)
-            ok = ds.read_masks(1, window=win) > 0
-            if val.dtype.kind == "f":
-                ok &= np.isfinite(val)
-            if invalid.size:
-                ok &= ~np.isin(val, invalid.astype(val.dtype))
-            idx = lut[_baas_chunk(baas, ds, r0, r1, same_grid)]
+            ok, val = validity(val, ds.read_masks(1, window=win) > 0, invalid, spec.zero_values)
+            codes = _baas_chunk(baas, ds, r0, r1, same_grid)
+            if lut_all is not None and cls_stats is not None:
+                _accumulate_classes(codes, val, ok, lut_all, cls_stats)
+            idx = lut[codes]
             ok &= idx >= 0
             if not ok.any():
                 continue

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import polars as pl
 
-from . import catalog, config, stats
+from . import catalog, config, nouded, stats
 
 log = logging.getLogger(__name__)
 
@@ -356,3 +356,57 @@ def write_results(results: Path, out_md: Path) -> None:
             "",
         ]
     out_md.write_text("\n".join(L), encoding="utf-8")
+
+
+def write_requirements(out_md: Path) -> None:
+    """Kirjuta ``docs/lahteulesanne.md``: nõuete täitmine, kriitika ja avatud küsimused (``nouded``)."""
+    icon = {nouded.DONE: "✅", nouded.PART: "🟡", nouded.WAIT: "⏳", nouded.TODO: "⬜"}
+    cnt = {s: sum(1 for r in nouded.REQUIREMENTS if r["staatus"] == s) for s in icon}
+    lines = [
+        "# Lähteülesande täitmine ja kriitiline hinnang",
+        "",
+        "Generaator: `python -m oks report` (sisu allikas `src/oks/nouded.py`; sama sisu on veebilehel vahekaardil "
+        "„Lähteülesande täitmine“).",
+        "",
+        "Allikad: (1) *LTK kaasneva kasu hindamise lähteülesanne* (Kliimaministeerium; edaspidi **lähteülesanne**, "
+        "nõuded L1–L15) ja (2) *LTK kaasneva kasu analüüsi kvantitatiivne analüüs, lähtekas* (Keskkonnaagentuur; "
+        "edaspidi **lähtekas**, nõuded K1–K10). Lähteülesanne hõlmab ka kvalitatiivset osa; lähtekas on "
+        "selle kvantitatiivse osa täpsustus.",
+        "",
+        "## Kokkuvõte",
+        "",
+        " · ".join(f"{icon[s]} {s}: {cnt[s]}" for s in icon),
+        "",
+        "* **Täidetud** on kogu kvantitatiivne osa (tüüp × seisund, suured ökosüsteemid, pindala, nullid, ei paku, rannik) ning "
+        "Excel-andmetabel ja veebileht.",
+        "* **Ootel** on kõik, mis eeldab Kliimaministeeriumi kinnitatud meetmete nimekirja (tegevuspõhine tabel, "
+        "otsese ja kaudse mõju eristus, meetmepõhine võrreldavus).",
+        "* **Osaliselt** on kvalitatiivne osa: teenuste kaupa raamistik ja andmepõhine tõendus on olemas; ajaraam, ulatus, "
+        "lävendid ja CICES rühmad on ettepanekud, mida eksperdid ei ole valideerinud.",
+        "",
+        "## Nõuete täitmine",
+        "",
+        _md_table(
+            [
+                [r["id"], r["nouue"], f"{icon[r['staatus']]} {r['staatus']}", r["kus"], r["kommentaar"]]
+                for r in nouded.REQUIREMENTS
+            ],
+            ["", "Nõue", "Seis", "Kus", "Kommentaar"],
+        ),
+        "",
+        "## Kriitilised tähelepanekud",
+        "",
+    ]
+    for i, (t, tx) in enumerate(nouded.CRITIQUE, start=1):
+        lines += [f"{i}. **{t}.** {tx}", ""]
+    lines += ["## Avatud küsimused", ""]
+    lines += [f"{i}. {q}" for i, q in enumerate(nouded.QUESTIONS, start=1)]
+    lines += [
+        "",
+        "## Ajakava",
+        "",
+        "Lähteülesande järgi: KLIMi meetmete nimekiri augustis → esialgne versioon KLIMile tagasisideks → parandused → "
+        "lõppraport ja andmetabel **4. novembril 2026**.",
+        "",
+    ]
+    out_md.write_text("\n".join(lines), encoding="utf-8")

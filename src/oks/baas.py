@@ -195,3 +195,17 @@ def class_lut(table: pl.DataFrame) -> tuple[NDArray[np.int16], pl.DataFrame]:
     lut = np.full(65536, -1, dtype=np.int16)
     lut[used["kood"].to_numpy()] = used["idx"].to_numpy().astype(np.int16)
     return lut, used
+
+
+def class_lut_all(table: pl.DataFrame) -> tuple[NDArray[np.int16], pl.DataFrame]:
+    """Otsingutabel ``kood -> klassiindeks`` KÕIGILE baaskaardi klassidele (ka seisundita ja rannik).
+
+    Returns
+    -------
+    tuple[NDArray[np.int16], pl.DataFrame]
+        ``lut`` pikkusega 65536 (``-1`` = klassita) ja sorteeritud klassitabel veeruga ``idx``.
+    """
+    allc = table.sort("kood").with_row_index("idx")
+    lut = np.full(65536, -1, dtype=np.int16)
+    lut[allc["kood"].to_numpy()] = allc["idx"].to_numpy().astype(np.int16)
+    return lut, allc

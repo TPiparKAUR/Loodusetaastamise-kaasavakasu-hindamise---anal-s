@@ -28,6 +28,21 @@ def _load_lut() -> tuple[NDArray[np.int16], int]:
     return lut, used.height
 
 
+def cls_path(layer_id: str) -> Path:
+    """Klassitabel (kõik baaskaardi klassid): ``{id}__cls.parquet``."""
+    return config.BLOCKS / f"{layer_id}__cls.parquet"
+
+
+def write_cls(layer_id: str, stats: np.ndarray, all_classes: pl.DataFrame) -> None:
+    """Kirjuta klassitabel: ``kood`` + ``aggregate.CLS_STATS`` veerud (ainult klassid, millel on pikslid)."""
+    df = pl.DataFrame(
+        {"kood": all_classes["kood"], **{c: stats[:, i] for i, c in enumerate(aggregate.CLS_STATS)}}
+    ).filter(pl.col("n_total") > 0)
+    df.with_columns(pl.col(c).cast(pl.Int64) for c in aggregate.CLS_STATS[:5]).write_parquet(
+        cls_path(layer_id), compression="zstd"
+    )
+
+
 def hist_paths(layer_id: str) -> tuple[Path, Path]:
     """Jaotuse (histogrammi) failid: loendused (Parquet) ja vahemike kirjeldus (JSON)."""
     return config.BLOCKS / f"{layer_id}__hist.parquet", config.BLOCKS / f"{layer_id}__hist.json"
@@ -51,24 +66,34 @@ def _aggregate_with_hist(
     baas_det: Path,
     lut: NDArray[np.int16],
     n_cls: int,
+    zero_values: tuple[float, ...] = (),
 ) -> pl.DataFrame:
-    spec = hist.choose_spec(src, baas_det, lut, invalid)
+    spec = hist.choose_spec(src, baas_det, lut, invalid, zero_values)
     counts = np.zeros((n_cls, spec.n_bins + 1), dtype=np.int64)
+    lut_all, all_classes = baas.class_lut_all(pl.read_parquet(config.DERIVED / "klassid.parquet"))
+    cstats = np.zeros((all_classes.height, aggregate.N_CLS_STATS), dtype=np.float64)
     df = aggregate.aggregate_layer(
-        aggregate.LayerSpec(layer_id, tif_name, invalid),
+        aggregate.LayerSpec(layer_id, tif_name, invalid, zero_values),
         src,
         baas_det,
         lut,
         n_cls,
         spec,
         counts,
+        lut_all,
+        cstats,
     )
     write_hist(layer_id, spec, counts)
+    write_cls(layer_id, cstats, all_classes)
     return df
 
 
 def process_layer(
-    layer_id: str, rel: str, invalid: tuple[float, ...], keep_raw: bool = False
+    layer_id: str,
+    rel: str,
+    invalid: tuple[float, ...],
+    zero_values: tuple[float, ...] = (),
+    keep_raw: bool = False,
 ) -> dict[str, object]:
     """Töötle üks raster; tagasta manifestirida (ajad, ridade arv, suurus)."""
     out = config.BLOCKS / f"{layer_id}.parquet"
@@ -78,7 +103,7 @@ def process_layer(
     fetch.download(rel, dest)
     t1 = time.time()
     baas_det = fetch.download(config.BAAS_DET, config.CACHE / config.BAAS_DET)
-    df = _aggregate_with_hist(layer_id, dest, rel, invalid, baas_det, lut, n_cls)
+    df = _aggregate_with_hist(layer_id, dest, rel, invalid, baas_det, lut, n_cls, zero_values)
     config.BLOCKS.mkdir(parents=True, exist_ok=True)
     df.write_parquet(out, compression="zstd")
     if not keep_raw:
@@ -108,9 +133,21 @@ def run(workers: int = 3, only: set[str] | None = None, force: bool = False) -> 
     for r in ev.iter_rows(named=True):
         if only and r["id"] not in only:
             continue
-        if not force and (config.BLOCKS / f"{r['id']}.parquet").exists() and hist_paths(r["id"])[0].exists():
+        if (
+            not force
+            and (config.BLOCKS / f"{r['id']}.parquet").exists()
+            and hist_paths(r["id"])[0].exists()
+            and cls_path(r["id"]).exists()
+        ):
             continue
-        jobs.append((r["id"], r["fail"], catalog.EXTRA_INVALID.get(r["id"], ())))
+        jobs.append(
+            (
+                r["id"],
+                r["fail"],
+                catalog.EXTRA_INVALID.get(r["id"], ()),
+                catalog.zero_values(r["id"], r["nodata"]),
+            )
+        )
     log.info("%d kihti töötlemisel", len(jobs))
     rows: list[dict[str, object]] = []
     # 'spawn': Polars + fork võib ummistuda
@@ -161,7 +198,7 @@ def run_fields(force: bool = False) -> pl.DataFrame:
     rows = []
     for lid, gpkg, attr, tif in FIELD_LAYERS:
         out = config.BLOCKS / f"{lid}.parquet"
-        if out.exists() and hist_paths(lid)[0].exists() and not force:
+        if out.exists() and hist_paths(lid)[0].exists() and cls_path(lid).exists() and not force:
             continue
         t0 = time.time()
         src = config.DERIVED / "vektor_raster" / tif

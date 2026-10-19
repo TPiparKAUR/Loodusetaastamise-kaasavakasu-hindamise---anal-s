@@ -106,6 +106,7 @@ def choose_spec(
     baas_det: Path,
     lut: NDArray[np.int16],
     invalid: tuple[float, ...] = (),
+    zero_values: tuple[float, ...] = (),
     max_pixels: int = 8_000_000,
     max_discrete: int = 40,
     nbins: int = 40,
@@ -125,6 +126,8 @@ def choose_spec(
         Klassi otsingutabel (``baas.class_lut``).
     invalid
         Lisaks NoData-le välistatavad väärtused.
+    zero_values
+        Väärtused, mis loetakse kehtivaks nulliks (ka NoData-na deklareerituna).
     max_pixels
         Proovi suurus.
     max_discrete
@@ -142,6 +145,10 @@ def choose_spec(
         if ds.nodata is not None:
             nd = np.asarray(ds.nodata).astype(val.dtype)
             ok = ~np.isnan(val) if np.isnan(nd) else val != nd
+        if zero_values:
+            zero = np.isin(val, np.asarray(zero_values, dtype=val.dtype))
+            ok |= zero
+            val = np.where(zero, np.zeros((), dtype=val.dtype), val)
         det = np.zeros(shape, dtype=np.uint16)
         reproject(
             source=rasterio.band(baas, 1),

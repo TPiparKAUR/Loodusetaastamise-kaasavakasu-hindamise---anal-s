@@ -76,8 +76,14 @@ Arhiivis on neli faili, mida ametlikus tabelis ei ole (`Elupaigahuve/.tif`, `Loo
    See on proovivõtt, mitte pindalakaalutud enamusklass; kontrollitud kihil `sidusus_1km_2022_10m`: 10 m proovivõtu pindala erineb täisresolutsiooni
    (5 m) pindalast kõigis ökosüsteemi × seisundi klassides < 0,03 %.
 2. **NoData ja sentinel-väärtused.** Kehtivad on pikslid, mis pole rastri deklareeritud NoData, pole NaN ja millel on
-   baaskaardi seisund. Lisaks: `ohusaaste_puhverdusvoime_2022_5m` väärtus 255 käsitletakse NoData-na (tabeli märkus „255 käitub kui 0”,
-   NoData on 0); `pohlad_saagikus_2020_10m` −1 on tabeli järgi kehtiv väärtus (`has_negative = 1`).
+   baaskaardi seisund. **Erand (parandus 2026-10-19):** kihtides, kus tabelis deklareeritud NoData on **0**
+   (`seened_hind_2022_10m`, `ohusaaste_puhverdusvoime_2022_5m`, `ohusaaste_puhverdusvoime_eur_ha_2022_5m`,
+   `puitne_biomass_c_t_ha_niit_sum_2022_5m`, `puitne_biomass_c_t_ha_soo_sum_2022_5m`, `puitne_biomass_c_eur_ha_ets_…`),
+   loetakse 0 **kehtivaks nulliks** (lähtekasu loogikakontroll: nullid kuuluvad keskmisse). Esimene versioon jättis need nullid välja ja
+   andis seega ainult nullist erinevate pikslite keskmise; ohusaaste puhverdamisel loetakse ka 255 nulliks (tabeli märkus
+   „255 käitub kui 0”). Klass, kus nullist erinevaid piksleid on alla 1 %, loetakse teenust mitte pakkuvaks ja jäetakse
+   seisundi muutuse analüüsist välja (`catalog.POSITIVE_MIN`). `pohlad_saagikus_2020_10m` −1 on tabeli järgi kehtiv väärtus
+   (`has_negative = 1`).
 3. **Ploki jaotus.** Piksel kuulub 1 km plokki (EPSG:3301 ruudustik, joondatud 1000 m kordsetele) piksli **keskpunkti** järgi.
 4. **Täisarvude ületäitumine.** Pikslite arv hoitakse `Int64`-ina (Int32 summa ületäitub ~2,1 miljardil); testis ja kontrollis leitud.
 5. **Allalaadimise terviklus.** Suurus kontrollitakse serveri `Content-Length` vastu ja poolik fail jätkatakse (`Range`).
@@ -138,6 +144,30 @@ samal läbikäigul (`oks.hist`, `oks.aggregate`) iga **detailse klassi** kohta p
 * **Leitud viga (parandatud):** esimeses versioonis sattus NoData väärtus (nt 255, 65535) vahemike valiku proovi, sest
   GDAL tuletab allavalimisel (`out_shape`) maski pyramiididest. Kehtivus määratakse nüüd väärtuste võrdlusest NoData-ga;
   regressioonitest (`tests/test_hist.py`) kasutab ruudumustris NoData-t ja pyramiide.
+
+## 5.4 Kaasneva kasu tulemustabelid (lähtekas)
+
+Lähtekasu tabelid (`oks.kaasnev`) ei kasuta plokitabelit, vaid **klassitabelit**: iga kihi kohta kõigi 264 baaskaardi klassi
+(sh seisundita ja rannik) pikslite arv, kehtivate, nullide, positiivsete ja negatiivsete arv ning Σx, Σx² (`aggregate.CLS_STATS`).
+Kehtivus on sama mis plokitabelis.
+
+* **Keskväärtus** rida kohta = Σx / kehtivate pikslite arv rea klassides, st kogu klassi kehtiva pindala kohta, nullid kaasa arvatud.
+  Rida on `(ökosüsteemitüüp = alam_kood, seisund)`; tüüp koondab selle tähtklassid (nt A, B → hea).
+* **Pindala (ha)** = baaskaardi 5 m pikslid × 25 m².
+* **Suured ökosüsteemid** (niit, soo, mets, põld, rannik) = pikslite järgi kaalutud keskmine (st kehtiva pindalaga kaalutud
+  tüüpide keskmine); „Asustus ja muu” ei liideta.
+* **Staatus:** `ei hinnatud`, kui kehtivaid piksleid alla 5 % klassi pikslitest; `ei paku`, kui nullist erinevaid alla 1 %
+  kehtivatest (lähtekas: „väga-väga vähe”); `osaline kate`, kui kehtivaid alla 90 %; muidu `ok`. Lävendid on parameetrid
+  (`catalog.POSITIVE_MIN`, `kaasnev.COVER_MIN`, `kaasnev.COVER_FULL`), mitte andmetest tulenevad piirid.
+* **Pikslitaseme SD** on kirjeldav (ruumiliselt sõltuvad pikslid), mitte keskmise ebakindlus. Usaldusvahemikud on ainult
+  seisundite erinevusel (§ 5.1, § 6).
+* **Seisundikoodid** (lähtekasu taustatabel): 1 hea, 2 keskmine, 3 vilets, 4 määramata (soo/niit/mets/põld), 5 hindamata
+  (rannikud, asustus ja muu). Tähtklasside vastavus ühtib § 2.2 tuletatud vastavusega.
+* **Lisakihid** lähtekasu alusel (ei ole tabelis `eval = TRUE`): mulla süsiniku varu rahaline väärtus (ETS ja sotsiaalse kulu
+  hind), metsa puitse biomassi süsiniku väärtus (ETS) ja `sidusus_1km_2022_10m` (üks sidusus, nagu lähtekas soovitab).
+* **Indikaatorid** (`oks.indikaatorid`) rühmitavad kihid loodushüveks (biofüüsikaline + rahalised versioonid) ja kannavad
+  kvalitatiivseid ettepanekuid (CICES sektsioon, suund, ajaraam, ulatus, topeltarvestus, ebakindlus). Hinnangulised veerud
+  on ettepanekud, mida ekspert kinnitab.
 
 ## 6. Statistiline olulisus
 
