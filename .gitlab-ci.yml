@@ -1,0 +1,31 @@
+# GitLab CI: kvaliteedikontroll ja veebilehe ehitus (GitLab Pages).
+image: python:3.12-slim
+
+variables:
+  UV_LINK_MODE: copy
+
+before_script:
+  - pip install --quiet uv
+  - uv sync --frozen
+
+lint:
+  stage: test
+  script:
+    - uv run ruff check .
+    - uv run ruff format --check .
+    - uv run mypy src
+
+test:
+  stage: test
+  script:
+    - uv run pytest -q
+
+pages:
+  stage: deploy
+  script:
+    - uv run python -m oks site --out public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

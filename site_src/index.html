@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ökosüsteemiteenused ja seisund</title>
+<meta name="description" content="Kuidas ja kui palju muutuvad ökosüsteemiteenused, kui ökosüsteemi seisund liigub klasside vilets, keskmine ja hea vahel.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="topbar">
+      <div>
+        <h1>Ökosüsteemiteenused ja seisund</h1>
+        <p>Kuidas ja kui palju muutuvad ökosüsteemiteenused ühe ökosüsteemi või alamökosüsteemi sees, kui seisund liigub klasside <b>vilets → keskmine → hea</b> vahel, ja kas muutus on statistiliselt oluline. Andmed: ELME2/ELME1 kihid (baaskaart 2022), arhiiv <code>arhiiv/</code>.</p>
+      </div>
+      <button class="ghost" id="theme" type="button" aria-label="Vaheta hele/tume teema">Teema</button>
+    </div>
+  </header>
+</div>
+<div class="filters" role="search" aria-label="Filtrid">
+  <div class="wrap">
+    <details class="fwrap" id="fdet" open>
+      <summary>Filtrid</summary>
+      <div class="frow" id="filters"></div>
+    </details>
+  </div>
+</div>
+<div class="wrap">
+  <nav class="tabs" role="tablist" id="tabs" aria-label="Vaated"></nav>
+  <main id="view" aria-live="polite"><p class="empty">Laen andmeid…</p></main>
+</div>
+<div id="tip" role="tooltip"></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<PAMDataset>
+  <PAMRasterBand band="1">
+    <Description>baas_kood</Description>
+    <Metadata>
+      <MDI key="STATISTICS_APPROXIMATE">YES</MDI>
+      <MDI key="STATISTICS_MINIMUM">10100</MDI>
+      <MDI key="STATISTICS_MAXIMUM">60400</MDI>
+      <MDI key="STATISTICS_MEAN">32978.030109722</MDI>
+      <MDI key="STATISTICS_STDDEV">10284.552394822</MDI>
+      <MDI key="STATISTICS_VALID_PERCENT">54.43</MDI>
+    </Metadata>
+  </PAMRasterBand>
+</PAMDataset>

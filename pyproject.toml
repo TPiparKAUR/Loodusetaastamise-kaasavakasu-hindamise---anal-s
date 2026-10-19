@@ -1,0 +1,36 @@
+[project]
+name = "oks-seisund-analuus"
+version = "0.1.0"
+description = "Ökosüsteemiteenuste muutus seisundiklasside (vilets, keskmine, hea) vahel"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy",
+  "scipy",
+  "polars",
+  "pyarrow",
+  "rasterio",
+  "pyogrio",
+  "shapely>=2.2.0",
+]
+
+[dependency-groups]
+dev = ["pytest", "ruff", "mypy"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "NPY"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "src"
+ignore_missing_imports = true
+warn_unused_ignores = true

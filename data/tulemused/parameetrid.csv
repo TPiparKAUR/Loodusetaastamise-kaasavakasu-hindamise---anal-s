@@ -1,0 +1,2 @@
+cluster_blocks,n_boot,min_area_ha,min_strata,min_clusters,seed,alpha
+10,4000,1.0,20,5,20261019,0.05

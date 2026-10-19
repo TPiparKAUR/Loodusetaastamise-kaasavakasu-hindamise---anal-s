@@ -1,0 +1,25 @@
+# Keskkond ja vahemälu
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Toorandmed ja suured vahetulemused (taastatavad: vt README)
+data/cache/
+data/derived/plokid/
+data/derived/vektor_raster/
+data/derived/koosseis_*.npy
+
+# Proovijooksud ja tundlikkuse variantide kaustad (kokkuvõte on data/tulemused/tundlikkus.csv)
+data/tulemused_proov*/
+data/tulemused/tundlikkus_*/
+
+# Ehitatud sait
+site/
+_site/
+out/
+
+# Kasutamata suur alusfail (maakonnapiirid); laeb arhiivist vajadusel
+alusmaterjalid/arhiiv/
