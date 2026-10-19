@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -42,4 +43,18 @@ def build(out: Path, results: Path | None = None) -> Path:
     )
     single = out / "oks-seisund.html"
     single.write_text(html, encoding="utf-8")
+    (out / "oks-seisund-artifact.html").write_text(_artifact_variant(html), encoding="utf-8")
     return single
+
+
+def _artifact_variant(html: str) -> str:
+    """Muuda ühefailne leht artefakti-platvormi sisuks (ilma ``html/head/body`` siltideta)."""
+    title = re.search(r"<title>.*?</title>", html, re.S)
+    head = re.search(r"<head>(.*?)</head>", html, re.S)
+    body = re.search(r"<body>(.*?)</body>", html, re.S)
+    if not (title and head and body):
+        raise ValueError("Ootamatu HTML-struktuur")
+    head_rest = re.sub(
+        r"<title>.*?</title>|<meta charset[^>]*>|<meta name=\"viewport\"[^>]*>", "", head.group(1), flags=re.S
+    ).strip()
+    return f'{title.group(0)}\n<meta name="claude:viewport-fit-sides" content="cover">\n{head_rest}\n{body.group(1).strip()}\n'

@@ -95,6 +95,7 @@ def build_data(results: Path, out: Path, sensitivity: Path | None = None) -> dic
                 "kirjeldus": r["abstract"],
                 "eta2": eta,
                 "meetod": methods.get(lid, "paaritatud"),
+                "definitsiooniline": lid in catalog.DEFINITIONAL,
                 "aasta": next((int(s) for s in lid.split("_") if s.isdigit() and len(s) == 4), None),
             }
         )

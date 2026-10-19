@@ -235,7 +235,7 @@
       if (r.t.grupp !== last) { h('text', { x: 0, y: y + 14, class: 'strong' }, svg, r.t.grupp); y += 20; last = r.t.grupp; }
       const lab = h('g', { class: 'rowlbl', tabindex: 0, role: 'button', 'aria-label': `Ava detail: ${r.t.nimi}` }, svg);
       const unitTxt = r.t.uhik ? ` · ${r.t.uhik.split(' (')[0]}` : '';
-      const mark = (r.t.meetod || '').startsWith('segumudel') ? ' ‡' : '';
+      const mark = ((r.t.meetod || '').startsWith('segumudel') ? ' ‡' : '') + (r.t.definitsiooniline ? ' †' : '');
       const full = `${r.t.nimi}${unitTxt}${mark}`;
       const keep = Math.max(8, maxCh - unitTxt.length - mark.length - 1);
       const nm = full.length > maxCh ? `${r.t.nimi.slice(0, keep)}…${unitTxt}${mark}` : full;
@@ -268,6 +268,7 @@
     const lg = h('ul', { class: 'legend' }, card);
     const li1 = h('li', {}, lg); h('span', { class: 'ramp' }, li1); h('span', {}, li1, '−100 % … 0 … +100 % (punane = väärtus väheneb, sinine = väärtus kasvab; järsemad muutused küllastuvad)');
     const li3 = h('li', {}, lg); h('span', {}, li3, '‡ = uuriv segumudel (jäme ruudustik); tõlgendada ettevaatlikult');
+    const li4 = h('li', {}, lg); h('span', {}, li4, '† = seos seisundiga on osaliselt definitsiooniline (kihi väärtus on tuletatud seisundiklassist; vt teenuse detail)');
     const li2 = h('li', {}, lg); h('svg', { width: 12, height: 12 }, li2).append(h('polygon', { points: '12,0 12,10 2,0', fill: cssVar('--ink'), 'fill-opacity': 0.55 })); h('span', {}, li2, 'nurgamärk: ≥ 90 % kihi dispersioonist on baaskaardi klassi tabelväärtus (mudelipõhine; seisundi mõju osaliselt definitsiooniline)');
     h('p', { class: 'note' }, card, 'Suund pole hinnang: näiteks erosiooni ärakandel tähendab positiivne muutus suuremat ärakannet, kliimaregulatsiooni indeksil tähendab väiksem väärtus ühtlasemat temperatuuri. Vt teenuse detaili.');
   }
@@ -501,6 +502,14 @@
     const bar = h('div', { class: 'frow' }, card);
     const dl = h('button', { type: 'button', class: 'ghost' }, bar, `Laadi alla CSV (${rows.length} rida)`);
     dl.onclick = () => downloadCsv(rows);
+    const cp = h('button', { type: 'button', class: 'ghost' }, bar, 'Kopeeri CSV');
+    cp.onclick = async () => {
+      const txt = csvText(rows);
+      try { await navigator.clipboard.writeText(txt); cp.textContent = 'Kopeeritud'; setTimeout(() => { cp.textContent = 'Kopeeri CSV'; }, 1500); } catch {
+        let ta = $('#csvbox'); if (!ta) ta = h('textarea', { id: 'csvbox', class: 'csvbox', readonly: true, 'aria-label': 'CSV' }, card);
+        ta.value = txt; ta.focus(); ta.select();
+      }
+    };
     if (!rows.length) { h('p', { class: 'empty' }, card, 'Valitud filtritele ei vasta ühtegi tulemust.'); return; }
     const wrap = h('div', { class: 'tblwrap' }, card), t = h('table', { class: 'data' }, wrap), hd = h('tr', {}, h('thead', {}, t));
     for (const col of COLS) { const th = h('th', { 'aria-sort': S.sort.col === col[0] ? (S.sort.dir > 0 ? 'ascending' : 'descending') : 'none', tabindex: 0 }, hd, `${col[1]}${S.sort.col === col[0] ? (S.sort.dir > 0 ? ' ▲' : ' ▼') : ''}`); const f = () => { S.sort = { col: col[0], dir: S.sort.col === col[0] ? -S.sort.dir : 1 }; renderAll(true); }; th.onclick = f; th.onkeydown = (e) => { if (e.key === 'Enter') f(); }; }
@@ -515,11 +524,13 @@
     }
     if (rows.length > 500) h('p', { class: 'note' }, card, `Näidatud on esimesed 500 rida ${rows.length}-st; CSV sisaldab kõiki.`);
   }
-  function downloadCsv(rows) {
+  function csvText(rows) {
     const q = (v) => (v === null || v === undefined || Number.isNaN(v) ? '' : typeof v === 'string' ? `"${v.replaceAll('"', '""')}"` : String(v));
     const head = COLS.map((c) => q(c[1])).join(',');
-    const lines = rows.map((r) => COLS.map((c) => q(c[2](r))).join(','));
-    const blob = new Blob(['﻿', [head, ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
+    return [head, ...rows.map((r) => COLS.map((c) => q(c[2](r))).join(','))].join('\n');
+  }
+  function downloadCsv(rows) {
+    const blob = new Blob(['\ufeff', csvText(rows)], { type: 'text/csv;charset=utf-8' });
     const a = h('a', { href: URL.createObjectURL(blob), download: 'okosusteemiteenused_seisund.csv' }); document.body.append(a); a.click(); a.remove();
   }
 
@@ -540,7 +551,7 @@
     const ul = h('ul', {}, card);
     for (const s of [
       'Statistiline olulisus ei tähenda põhjuslikkust: seisund ja teenus võivad sõltuda ühistest teguritest (mullastik, asukoht). Paaritamine vähendab, kuid ei kõrvalda seda.',
-      'Paljud teenuste kihid on arvutatud baaskaardi klassi või seisundi põhjal (nt rahalised hinnangud, kliimaregulatsioon, õhusaaste puhverdamine). Neil on muutus seisundi vahel osaliselt definitsiooniline; seda näitab nurgamärk (η² ≥ 0,9) ja hoiatus detailis.',
+      'Osa kihte on arvutatud baaskaardi klassi või seisundi põhjal (kihi kirjelduse järgi nt kliimaregulatsioon ja kahjuritõrje; kontrollitud ka toiduteenus). Neil on muutus seisundi vahel osaliselt definitsiooniline; seda näitavad nurgamärk (η² ≥ 0,9), märk † ja hoiatus teenuse detailis.',
       'Teenuste aastad on erinevad (2020 ja 2022), baaskaart on 2022. Eraldusvõimed on 5 ja 10 m, baaskaart võetakse teenuse ruudustikule lähima naabriga.',
       'Mõnede kihtide väärtused on diskreetsed klassid või skoorid (järjestusskaala); keskmine on siis skoori keskmine, mitte füüsikaline suurus.',
       'Ühikud on võetud ametlikust kihitabelist; kus tabel ühikut ei nimeta, on see tühi.',

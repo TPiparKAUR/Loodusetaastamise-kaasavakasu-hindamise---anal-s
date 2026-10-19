@@ -153,16 +153,18 @@ normaalvõrrandite tasemel. Eeldus „väärtus sõltub ainult klassist” on tu
 
 ## 8. Diagnostika: mudelipõhisus
 
-Paljud teenuste kihid on tehtud **baaskaardi klassi või seisundi põhjal** (rahalised hinnangud, kliimaregulatsioon, õhusaaste
-puhverdamine jm). Nende puhul on teenuse muutus seisundi vahel osaliselt **definitsiooniline**, mitte iseseisev tähelepanek.
-Seda ei saa metaandmetest alati lugeda, seepärast arvutatakse iga kihi ja ökosüsteemi kohta pikslitasandi η²:
+Osa teenuste kihte on tehtud **baaskaardi klassi või seisundi põhjal** (kihi kirjelduse järgi nt kliimaregulatsioon ja
+kahjuritõrje; kontrollitud ka `toiduteenus_2022`). Nende puhul on teenuse muutus seisundi vahel osaliselt **definitsiooniline**,
+mitte iseseisev tähelepanek. Seda ei saa metaandmetest alati lugeda, seepärast arvutatakse iga kihi ja ökosüsteemi kohta pikslitasandi η²:
 
 * `eta2_det` – osa dispersioonist, mida seletab detailne klass (263 klassi, ökosüsteemi sees),
 * `eta2_alam` – osa, mida seletab alamökosüsteem,
 * `eta2_state_in_alam` – osa, mida seletab seisund alamökosüsteemi sees.
 
 η² on kirjeldav näitaja (ruumilise sõltuvuse tõttu pole sellel olulisuse tõlgendust). Lehel märgitakse tulemus nurgamärgiga, kui
-`eta2_det ≥ 0,9`.
+`eta2_det ≥ 0,9`; kihid, mille seos seisundiga on teadaolevalt definitsiooniline (`toiduteenus_2022`, `biotorje_2022`), saavad lisaks märgi †.
+η² ≥ 0,9 on tulemustes ainult kuuel kihi × ökosüsteemi kombinatsioonil (`docs/tulemused.md` § 5), mistõttu η² ei asenda kihi
+metoodika tundmist.
 
 **Eraldi leid:** `toiduteenus_2022` väärtusklass A–D langeb põllukultuuride seisundiklassiga (A–D) kokku (keskmine väärtusklass klassides
 A/B/C/D = 1,0006 / 2,0000 / 3,0000 / 4,0000, SD ≈ 0,01). Seisund on põllumaal seega tuletatud sama väärtusklassi kaudu, mis on tuletatud

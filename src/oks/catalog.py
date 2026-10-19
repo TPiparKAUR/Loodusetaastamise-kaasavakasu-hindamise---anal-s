@@ -90,6 +90,11 @@ EXTRA_INVALID: dict[str, tuple[float, ...]] = {
     "ohusaaste_puhverdusvoime_2022_5m": (255.0,),
 }
 
+#: Kihid, mille seos seisundiga on definitsiooniline: ``toiduteenus_2022`` (põllukultuuride seisundiklass
+#: langeb kokku väärtusklassiga, kontrollitud) ja ``biotorje_2022`` (kihi kirjelduse järgi arvutatud põllu
+#: seisundiklassist).
+DEFINITIONAL: frozenset[str] = frozenset({"toiduteenus_2022", "biotorje_2022"})
+
 GROUP_NAMES: dict[str, str] = {
     "baaskaart": "Baaskaart",
     "bioloogiline_torje": "Bioloogiline tõrje",

@@ -31,7 +31,7 @@ html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
 a { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 header.top { padding: 20px 0 8px; }
 header.top h1 { margin: 0 0 4px; font-size: 1.55rem; line-height: 1.25; }
 header.top p { margin: 0; color: var(--ink-2); max-width: 62rem; }
@@ -49,7 +49,7 @@ button.ghost:hover, .seg button:hover, .chip:hover, summary.sel:hover { backgrou
 
 /* Filtririda (üks rida graafikute kohal) */
 .filters { background: var(--page); border-bottom: 1px solid var(--line); padding: 10px 0; z-index: 20; }
-@media (min-width: 1000px) and (min-height: 780px) { .filters { position: sticky; top: 0; } }
+@media (min-width: 1000px) and (min-height: 780px) { .filters { position: sticky; top: env(safe-area-inset-top, 0px); } }
 .frow { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
 .fgrp { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .fgrp > label, .fgrp > .lbl { font-size: .78rem; color: var(--ink-2); }
@@ -132,3 +132,5 @@ details.fwrap > summary::-webkit-details-marker { display: none; }
 details.fwrap > summary::before { content: "▾ "; color: var(--ink-2); }
 details.fwrap:not([open]) > summary::before { content: "▸ "; }
 details.fwrap:not([open]) > summary { margin-bottom: 0; }
+
+.csvbox { width: 100%; min-height: 8rem; font: 12px/1.4 ui-monospace, monospace; background: var(--surface); color: var(--ink); border: 1px solid var(--axis); border-radius: 6px; padding: 6px; }

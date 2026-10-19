@@ -52,7 +52,7 @@ docs/             dokumentatsioon
 ## Olulised piirangud (täpsemalt [docs/metoodika.md](docs/metoodika.md))
 
 * Tulemus kirjeldab **seoseid**, mitte põhjuslikku mõju.
-* Paljud teenuste kihid on arvutatud baaskaardi klassi/seisundi põhjal; nende puhul on seisundi mõju osaliselt definitsiooniline (lehel märgitud η²-nurgamärgiga).
+* Osa teenuste kihte on arvutatud baaskaardi klassi/seisundi põhjal (nt kliimaregulatsioon, kahjuritõrje, toiduteenus); nende puhul on seisundi mõju osaliselt definitsiooniline (lehel märgitud η²-nurgamärgi ja märgiga †).
 * 930 m rastrid ja 1 km vektorruudud on analüüsitud uuriva segumudeliga ainult ökosüsteemi tasemel.
 * Ühikud on loetud ametlikust kihitabelist; kus tabel ühikut ei nimeta, on see tühi.
 * Andmete kasutustingimused tuleb kontrollida enne taasavaldamist.
