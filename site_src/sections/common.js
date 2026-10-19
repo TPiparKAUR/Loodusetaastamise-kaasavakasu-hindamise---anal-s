@@ -2,7 +2,7 @@
   const STATE_IX = { vilets: 0, keskmine: 1, hea: 2 };
   const stCol = (name) => (name in STATE_IX ? stateColor(STATE_IX[name]) : cssVar('--neutral'));
   const stInk = (name) => (name in STATE_IX ? stateInk(STATE_IX[name]) : cssVar('--muted'));
-  const ECO_SHORT = { 1: 'Niit', 2: 'Soo', 3: 'Mets', 4: 'Põld', 5: 'Rannik', 6: 'Asustus ja muu' };
+  const ECO_SHORT = { 1: 'Niit', 2: 'Soo', 3: 'Mets', 31: 'Kuivad metsad', 32: 'Märjad metsad', 4: 'Põld', 5: 'Rannik', 6: 'Asustus ja muu' };
   const ST = { OK: 0, PART: 1, NONE: 2, MISS: 3, MIX: 4 };
   function K() { return D.K; }
   function kIndex() {

@@ -44,6 +44,23 @@ BIG_CLASSES: dict[int, str] = {
 }
 OTHER_CLASS = 6
 
+#: Metsa jaotus kuivadeks ja märjaks metsaks (kommentaar lähtekasule): ``alam_kood``-id (baaskaardi ökosüsteemitüübid).
+DRY_FOREST: tuple[int, ...] = (30100, 30500, 30600, 30700, 31000)  # salu-, palu-, laane-, loo-, nõmmemets
+WET_FOREST: tuple[int, ...] = (
+    30200,
+    30300,
+    30400,
+    30800,
+    30900,
+)  # soovikumets, sambla-, rohu-, kõdusoomets, rabastuv
+FOREST_SPLIT: dict[int, tuple[str, tuple[int, ...]]] = {
+    31: ("Kuivad metsad", DRY_FOREST),
+    32: ("Märjad metsad", WET_FOREST),
+}
+BIG_CLASSES.update({k: v[0] for k, v in FOREST_SPLIT.items()})
+#: Kuvamisjärjekord (kuivad ja märjad metsad kohe metsa järel).
+DISPLAY_ORDER: dict[int, float] = {1: 1.0, 2: 2.0, 3: 3.0, 31: 3.1, 32: 3.2, 4: 4.0, 5: 5.0}
+
 STATUS_OK = "ok"
 STATUS_PARTIAL = "osaline kate"
 STATUS_NONE = "ei paku"
@@ -151,8 +168,19 @@ def big_classes(stats: pl.DataFrame, classes: pl.DataFrame) -> pl.DataFrame:
     Kaal on kehtiv pindala (Σ pikslid), st tüübi keskmine kaalutakse sama tüübi kehtiva pindalaga; tüübid,
     kus teenust ei hinnatud, kaalu ei anna. Lisarida ``kokku (hea+keskmine+vilets)`` ja ``kokku (kõik)``.
     ``Asustus ja muu`` ei liideta (lähtekas: „Klassi MUUD pole vaja kokku liita“).
+    Mets on lisaks jagatud kuivadeks (salu-, palu-, laane-, loo-, nõmmemets) ja märjaks (soovikumets, sambla-, rohu-,
+    kõdusoomets, rabastuv mets) metsaks; „Muu (metsa)kooslus“ jääb ainult metsa kogusse.
     """
-    base = classes.filter(pl.col("okosusteem_kood").is_in(list(BIG_CLASSES)))
+    base = classes.filter(pl.col("okosusteem_kood").is_in([1, 2, 3, 4, 5]))
+    forest = base.filter(pl.col("okosusteem_kood") == 3)
+    split = [
+        forest.filter(pl.col("alam_kood").is_in(list(codes))).with_columns(
+            pl.lit(code).cast(forest.schema["okosusteem_kood"]).alias("okosusteem_kood"),
+            pl.lit(name).alias("okosusteem"),
+        )
+        for code, (name, codes) in FOREST_SPLIT.items()
+    ]
+    base = pl.concat([base, *split])
     keys = ["okosusteem_kood", "okosusteem", "seisund_nimi"]
     out = [_big(stats, base, keys)]
     for label, ulds in (
@@ -177,8 +205,13 @@ def big_classes(stats: pl.DataFrame, classes: pl.DataFrame) -> pl.DataFrame:
             )
             .alias("_o")
         )
-        .sort("okosusteem_kood", "_o")
-        .drop("_o")
+        .with_columns(
+            pl.col("okosusteem_kood")
+            .replace_strict(DISPLAY_ORDER, default=99.0, return_dtype=pl.Float64)
+            .alias("_e")
+        )
+        .sort("_e", "_o")
+        .drop("_o", "_e")
     )
 
 

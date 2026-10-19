@@ -156,7 +156,10 @@ def build_json(results: Path, out: Path) -> dict[str, Any]:
     mixed = _mixed_cells(lahtrid, layers)
     area_b = {tuple(r[k] for k in keys_b): r["pindala_ha"] for r in big.unique(keys_b).iter_rows(named=True)}
     rows_b = []
-    for key in sorted(area_b, key=lambda k: (k[0], list(big["seisund_nimi"].unique()).index(k[1]))):
+    for key in sorted(
+        area_b,
+        key=lambda k: (kaasnev.DISPLAY_ORDER.get(k[0], 99), list(big["seisund_nimi"].unique()).index(k[1])),
+    ):
         ok, sn = key
         cs = list(cells_b.get(key, [None] * len(layers)))
         for lid, cell in mixed.get((ok, sn), {}).items():
@@ -166,7 +169,7 @@ def build_json(results: Path, out: Path) -> dict[str, Any]:
         s: i
         for i, s in enumerate([*kaasnev.STATE_ORDER, "kokku (hea+keskmine+vilets)", "kokku (kõik seisundid)"])
     }
-    rows_b.sort(key=lambda r: (r[0], order.get(r[1], 99)))
+    rows_b.sort(key=lambda r: (kaasnev.DISPLAY_ORDER.get(r[0], 99), order.get(r[1], 99)))
 
     data = {
         "indikaatorid": [

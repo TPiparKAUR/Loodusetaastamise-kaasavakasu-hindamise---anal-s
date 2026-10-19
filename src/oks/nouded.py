@@ -192,7 +192,7 @@ REQUIREMENTS: list[Requirement] = [
         "nouue": "Suure pildi tabel suurte ökosüsteemide kaupa: mets, soo, niit, põld, rannik; klassi „muud“ ei liideta.",
         "staatus": DONE,
         "kus": "Tulemustabel (Suured ökosüsteemid)",
-        "kommentaar": "Kaalutud keskmised kehtiva pindalaga; lisaks „kokku“ read. „Asustus ja muu“ ei ole liidetud.",
+        "kommentaar": "Kaalutud keskmised kehtiva pindalaga; lisaks „kokku“ read. Mets on jagatud ka kuivadeks (salu-, palu-, laane-, loo-, nõmmemets) ja märjaks metsaks (soovikumets, sambla-, rohu-, kõdusoomets, rabastuv mets); „Muu (metsa)kooslus“ on ainult metsa kogus. „Asustus ja muu“ ei ole liidetud.",
     },
     {
         "id": "K7",

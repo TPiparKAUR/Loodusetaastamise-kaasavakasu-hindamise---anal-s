@@ -1,8 +1,8 @@
   /* ---------- Stsenaarium: vilets/keskmine → parem seisund etteantud pindalal ---------- */
   function calcUnits() {
     const Kd = K(), out = [];
-    for (const ok of [3, 2, 1, 4]) {
-      out.push({ key: `e:${ok}`, label: `${ECO_SHORT[ok]}: kõik tüübid kokku`, eco: ok, alam: null, group: ECO_SHORT[ok] });
+    for (const ok of [3, 31, 32, 2, 1, 4]) {
+      out.push({ key: `e:${ok}`, label: `${ECO_SHORT[ok]}: kõik tüübid kokku`, eco: ok, alam: null, group: ECO_SHORT[ok === 31 || ok === 32 ? 3 : ok] });
     }
     const seen = new Set();
     for (const r of Kd.tuubid) {
@@ -30,7 +30,9 @@
   }
   function evidenceFor(u, layer, pair) {
     buildTE();
-    const name = u.alam === null ? D.meta.uhikud.find((x) => x.tase === 'okosusteem' && x.kood === u.eco).nimi : u.label;
+    const eu = u.alam === null ? D.meta.uhikud.find((x) => x.tase === 'okosusteem' && x.kood === u.eco) : null;
+    if (u.alam === null && !eu) return null;
+    const name = eu ? eu.nimi : u.label;
     return D.TE.get(`${u.alam === null ? 'okosusteem' : 'alam'}|${name}|${layer}|${pair}`) || null;
   }
   function additiveUnit(l) {

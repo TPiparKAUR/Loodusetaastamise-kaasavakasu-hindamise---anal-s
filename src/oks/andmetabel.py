@@ -259,7 +259,7 @@ def write(
         ),
         (
             "Pindala",
-            "Baaskaardi pindala (5 m piksel = 25 m²) hektarites; kaalutud keskmised suurte ökosüsteemide kohta on kaalutud kehtiva pindalaga.",
+            "Baaskaardi pindala (5 m piksel = 25 m²) hektarites; kaalutud keskmised suurte ökosüsteemide kohta on kaalutud kehtiva pindalaga. Mets on jagatud ka kuivadeks (salu-, palu-, laane-, loo-, nõmmemets) ja märjaks metsaks (soovikumets, sambla-, rohu-, kõdusoomets, rabastuv mets).",
         ),
         (
             "Seisundid",

@@ -1,6 +1,7 @@
   /* ---------- Avaleht ---------- */
   const HEADLINE = ['puit_c_mets', 'mulla_c', 'mustikad_pohlad', 'seened', 'ohusaaste', 'tolmeldamine', 'elupaik', 'virgestus', 'erosioon_p', 'vee_regul'];
-  const HOME_ECOS = [3, 2, 1, 4];
+  const HOME_ECOS = [3, 31, 32, 2, 1, 4];
+  const HOME_BAR_ECOS = [3, 31, 32, 2, 1, 4];
   function kRow(ok, sn) { return D.K.suured.find((r) => r[0] === ok && r[1] === sn) || null; }
   function homeView(root) {
     if (!D.K) { h('p', { class: 'empty' }, root, 'Kaasneva kasu tulemused puuduvad selles ehituses.'); return; }
@@ -15,7 +16,7 @@
     xlsxLink(act, 'Excel (andmetabel)').classList.replace('primary', 'ghostbtn');
     // võtmenumbrid
     const types = new Set(Kd.tuubid.filter((r) => r[3] >= 1 && r[3] <= 3).map((r) => `${r[0]}|${r[1]}`));
-    const tot = Kd.suured.filter((r) => r[1] === 'kokku (hea+keskmine+vilets)').reduce((a, r) => a + (r[2] || 0), 0);
+    const tot = Kd.suured.filter((r) => r[1] === 'kokku (hea+keskmine+vilets)' && [1, 2, 3, 4].includes(r[0])).reduce((a, r) => a + (r[2] || 0), 0);
     const pe = D.P.filter((r) => D.meta.uhikud[r.unit_code].tase === 'okosusteem' && r.pair === 2 && r.enough_m);
     const sig = pe.filter((r) => r.oluline_m).length;
     const stats = h('div', { class: 'kpis' }, root);
@@ -27,7 +28,7 @@
     h('h2', {}, c1, 'Kui palju meil on hea, keskmist ja viletsat?');
     h('p', { class: 'sub' }, c1, 'Ökosüsteemide pindala ELME2 seisundikaardi järgi (2022). Taastamise potentsiaal on viletsa ja keskmise seisundi pindala.');
     const bars = h('div', { class: 'stackbars' }, c1);
-    for (const ok of HOME_ECOS) {
+    for (const ok of HOME_BAR_ECOS) {
       const parts = ['hea', 'keskmine', 'vilets', 'määramata'].map((s) => ({ s, a: (kRow(ok, s) || [0, 0, 0])[2] || 0 }));
       const sum = parts.reduce((a, p) => a + p.a, 0); if (!sum) continue;
       const row = h('div', { class: 'sbrow' }, bars);

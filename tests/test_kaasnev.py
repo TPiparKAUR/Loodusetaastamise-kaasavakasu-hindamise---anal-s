@@ -142,3 +142,37 @@ def test_requirements_have_valid_status() -> None:
     ids = [r["id"] for r in nouded.REQUIREMENTS]
     assert len(ids) == len(set(ids))
     assert all(r["staatus"] in allowed for r in nouded.REQUIREMENTS)
+
+
+def test_forest_split_into_dry_and_wet() -> None:
+    cls = pl.DataFrame(
+        {
+            "kood": [1, 2, 3],
+            "okosusteem_kood": [3, 3, 3],
+            "okosusteem": ["Metsad"] * 3,
+            "alam_kood": [kaasnev.DRY_FOREST[0], kaasnev.WET_FOREST[0], 31100],
+            "tuup": ["Salumets", "Soovikumets", "Muu (metsa)kooslus"],
+            "uld": [1, 1, 1],
+            "seisund_nimi": ["hea"] * 3,
+            "pindala_ha": [10.0, 20.0, 5.0],
+        }
+    )
+    st = _stats(
+        [
+            (1, 100, 100, 0, 100, 0, 1000.0, 1.0),
+            (2, 100, 100, 0, 100, 0, 200.0, 1.0),
+            (3, 100, 100, 0, 100, 0, 0.0, 0.0),
+        ]
+    )
+    big = kaasnev.big_classes(st, cls).filter(pl.col("seisund_nimi") == "hea")
+    by = {r["okosusteem"]: r["mean"] for r in big.iter_rows(named=True)}
+    assert by["Kuivad metsad"] == pytest.approx(10.0)
+    assert by["Märjad metsad"] == pytest.approx(2.0)
+    assert by["Metsad"] == pytest.approx(1200 / 300)  # „Muu (metsa)kooslus“ ainult metsa kogus
+    assert not set(kaasnev.DRY_FOREST) & set(kaasnev.WET_FOREST)
+    assert (
+        kaasnev.DISPLAY_ORDER[3]
+        < kaasnev.DISPLAY_ORDER[31]
+        < kaasnev.DISPLAY_ORDER[32]
+        < kaasnev.DISPLAY_ORDER[4]
+    )

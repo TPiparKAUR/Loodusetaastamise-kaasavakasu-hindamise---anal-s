@@ -2,7 +2,7 @@
   function ktInit() {
     const Kd = K();
     S.kt = {
-      view: 'tuubid', eco: new Set([1, 2, 3, 4, 5]), seis: new Set(['hea', 'keskmine', 'vilets']), sekt: new Set(Kd.indikaatorid.map((i) => i.sektsioon)),
+      view: 'tuubid', eco: new Set([1, 2, 3, 31, 32, 4, 5]), seis: new Set(['hea', 'keskmine', 'vilets']), sekt: new Set(Kd.indikaatorid.map((i) => i.sektsioon)),
       omadus: new Set(['biofüüsikaline', 'rahaline', 'muu']), q: '', kokku: true, ind: new Set(Kd.indikaatorid.map((i) => i.key)),
     };
   }
@@ -47,7 +47,7 @@
       for (const [v, t] of items) { const b = h('button', { type: 'button', class: 'chip', 'aria-pressed': String(set.has(v)) }, c, t); b.onclick = () => { set.has(v) ? set.delete(v) : set.add(v); renderAll(true); }; }
       return g;
     };
-    chipsRow('Ökosüsteem', [[3, 'Mets'], [2, 'Soo'], [1, 'Niit'], [4, 'Põld'], [5, 'Rannik'], ...(k.view === 'tuubid' ? [[6, 'Asustus ja muu']] : [])], k.eco);
+    chipsRow('Ökosüsteem', [[3, 'Mets'], ...(k.view === 'suured' ? [[31, 'Kuivad metsad'], [32, 'Märjad metsad']] : []), [2, 'Soo'], [1, 'Niit'], [4, 'Põld'], [5, 'Rannik'], ...(k.view === 'tuubid' ? [[6, 'Asustus ja muu']] : [])], k.eco);
     chipsRow('Seisund', [['hea', 'hea'], ['keskmine', 'keskmine'], ['vilets', 'vilets'], ['määramata', 'määramata'], ['hindamata', 'hindamata (rannik, muu)']], k.seis);
     chipsRow('Teenuse liik', [...new Set(Kd.indikaatorid.map((i) => i.sektsioon))].map((x) => [x, x]), k.sekt);
     chipsRow('Väärtus', [['biofüüsikaline', 'biofüüsikaline'], ['rahaline', 'rahaline'], ['muu', 'indeks / skoor']], k.omadus);

@@ -156,6 +156,7 @@ Kehtivus on sama mis plokitabelis.
 * **Pindala (ha)** = baaskaardi 5 m pikslid × 25 m².
 * **Suured ökosüsteemid** (niit, soo, mets, põld, rannik) = pikslite järgi kaalutud keskmine (st kehtiva pindalaga kaalutud
   tüüpide keskmine); „Asustus ja muu” ei liideta.
+* **Kuivad ja märjad metsad** (kommentaar lähtekasule): kuivad = salumets, palumets, laanemets, loomets, nõmmemets; märjad = soovikumets, samblasoomets, rohusoomets, kõdusoomets, rabastuv mets (`kaasnev.DRY_FOREST`, `WET_FOREST`). „Muu (metsa)kooslus“ kuulub ainult kogu metsa hulka. Jaotus näitab, et seisundi ja teenuse seos erineb kuivades ja märgades metsades (nt mustikad: kuivades metsades 55 → 111 kg/ha viletsast heasse, märgades metsades hea seisundis „ei paku“), mistõttu metsa ühine keskmine peidab selle.
 * **Staatus:** `ei hinnatud`, kui kehtivaid piksleid alla 5 % klassi pikslitest; `ei paku`, kui nullist erinevaid alla 1 %
   kehtivatest (lähtekas: „väga-väga vähe”); `osaline kate`, kui kehtivaid alla 90 %; muidu `ok`. Lävendid on parameetrid
   (`catalog.POSITIVE_MIN`, `kaasnev.COVER_MIN`, `kaasnev.COVER_FULL`), mitte andmetest tulenevad piirid.
