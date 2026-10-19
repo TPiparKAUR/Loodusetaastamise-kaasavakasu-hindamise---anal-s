@@ -22,7 +22,7 @@ Allikas: ELME kihtide arhiiv (`https://d549q4t3lqrx1.cloudfront.net/arhiiv/`, ba
 
 ```bash
 uv sync                                  # Python 3.12, uv
-uv run pytest -q                         # 36+ testi (sünteetilised andmed teadaoleva vastusega)
+uv run pytest -q                         # 39 testi (sünteetilised andmed teadaoleva vastusega)
 uv run ruff check . && uv run mypy src
 
 # Täielik uuesti arvutus (vajab ligipääsu arhiivi hostile; ~ 40 min, laeb ~ 25 GB, kustutab toorfailid)
