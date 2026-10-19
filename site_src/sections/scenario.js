@@ -91,9 +91,9 @@
         const ev = evidenceFor(u, lid, pair), te = h('td', {}, tr);
         if (ev && ev.hinnang) { h('span', { class: `pill ${ev.oluline ? 'sig' : ''}` }, te, `${ev.hinnang}: ${sgnRel(ev.rel)}${ev.oluline ? ' · oluline' : ' · ei ole oluline'}`); } else h('span', { class: 'muted' }, te, '–');
         const notes = h('div', { class: 'flagcell' }, h('td', {}, tr));
-        if (ind.tuup === 'varu') pill(notes, 'varu', 'info', 'Väärtus on varu, mitte aastane voog');
-        if (ind.tuup === 'voog') pill(notes, 'aastane voog', 'info', 'Aastane voog');
-        if (ind.tuup === 'indeks' || ind.tuup === 'skoor') pill(notes, ind.tuup, 'info', 'Ei ole liidetav hektarite kaupa');
+        if (ind.tuup === 'varu') pill(notes, 'varu', 'pinfo', 'Väärtus on varu, mitte aastane voog');
+        if (ind.tuup === 'voog') pill(notes, 'aastane voog', 'pinfo', 'Aastane voog');
+        if (ind.tuup === 'indeks' || ind.tuup === 'skoor') pill(notes, ind.tuup, 'pinfo', 'Ei ole liidetav hektarite kaupa');
         if (L.roll === 'raha' && /^piiratud/.test(ind.kulukasu)) pill(notes, 'kogusumma jaotus', 'warn', ind.kulukasu);
         if (L.definitsiooniline) pill(notes, '† definitsiooniline', 'warn', 'Seos seisundiga on osaliselt definitsiooniline');
         if (L.uuriv) pill(notes, '‡ uuriv', 'warn', 'Segumudeli hinnang');

@@ -69,7 +69,7 @@ INDICATORS: tuple[Indicator, ...] = (
         "varu × 3,67 × CO2 hind: ETS 2022 keskmine 80,68 EUR/t CO2 või sotsiaalse kulu hind 169,77 EUR/t CO2 (Rennert et al. 2022)",
         "osaliselt: väärtus on varu (EUR/ha), mitte aastane voog; kasutatav on varu muutus (Δ) ajas; tabeli märkus: 'Hind kokku leppida'",
         "mulla ja biomassi süsinik on eri reservuaarid; ära liida mulla süsiniku varu väärtust kasvuhoonegaaside heitmega samalt alalt; biofüüsikaline ja rahaline versioon on sama hüve",
-        "mudel (EstSoil-EH põhjal); suured veekogud, linnalised alad ja >6 m teed on välja jäetud; seisundite vahe on ruumiline, mitte ajaline",
+        "mudel (EstSoil-EH põhjal); suured veekogud, linnalised alad ja >6 m teed on välja jäetud; ökosüsteemi keskmised on 700–1900 t C/ha (soodes kõrgeimad), mis viitab kogu mullaprofiilile või turbale: sügavus ja ühik kinnitada kihi autoriga; seisundite vahe on ruumiline, mitte ajaline",
         "kaks hinda (ETS vs sotsiaalne kulu) erinevad 2,1 korda; vali üks või näita mõlemat",
     ),
     Indicator(

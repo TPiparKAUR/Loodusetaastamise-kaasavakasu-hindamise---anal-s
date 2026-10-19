@@ -291,5 +291,6 @@ QUESTIONS: list[str] = [
     "Kas rannikud (seisundita) tuleb esitada ainult keskmisena, kuna vilets → hea stsenaariumi nende jaoks ei saa arvutada?",
     "Mikrokliima kiht on baaskaardi klassi tabelväärtus; kas seda tohib kasutada seisundi ja teenuse seose tõendina?",
     "Kas rahalised kihid, mis on riigi kogusumma jaotus (virgestus, loodusturism, õhusaaste), tuleb sotsiaalmajanduslikust võrdlusest välja jätta?",
+    "Mulla orgaanilise süsiniku varu keskmised on 700–1900 t C/ha (soodes kõrgeimad). Millist mullaprofiili sügavust kiht esindab ja kas ühik t C/ha on õige?",
     "Litsents: ELME/KAUR andmete kasutustingimused enne tulemuste taasavaldamist.",
 ]

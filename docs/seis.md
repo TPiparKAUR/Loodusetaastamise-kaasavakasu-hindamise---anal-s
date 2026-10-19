@@ -15,6 +15,11 @@
 | Väärtuste jaotus seisundi kaupa (pikslitaseme histogrammid) | tehtud; 28 kihti, kontroll plokitabeli vastu 3 081 kombinatsiooni, 0 lahknevust; veebis: Teenuse detail, Jaotused |
 | Disainiprintsiibid, seisundipalett (punane–kollane–roheline), jaotuse vaated (kattuvad / eraldi / kumulatiivne), vaheleht Kihtide ülevaade | tehtud, `docs/disain.md` |
 | Veebilehe infonupud (iga filtri tähendus, nt paaritatud/paaritamata) | tehtud |
+| Lähteülesande (LTM) ja lähtekasu kriitiline analüüs, nõuete täitmine | tehtud, `docs/lahteulesanne.md` |
+| Lähtekasu tulemustabelid (tüüp × seisund, suured ökosüsteemid, rannik; pindala; nullid arvesse) | tehtud, Excel `andmetabel_kaasneva_kasu.xlsx` |
+| Nullide käsitluse parandus (NoData = 0 kihid) ja klassitabelid kõigile 264 klassile | tehtud, `docs/metoodika.md` § 2.3 ja § 5.4 |
+| Kvalitatiivne raamistik, tõendusbaas, tegevuste koondtabeli mall | tehtud (ettepanekud; ekspert kinnitab) |
+| Tegevuspõhine koondtabel | **ootel**: KLIMi meetmete nimekiri puudub |
 | GitHub Pages töövoog | tehtud (vaikeharust); vajab Settings → Pages → Source: GitHub Actions |
 | Testid (sünteetilised andmed teadaoleva vastusega), Ruff, mypy | rohelised |
 

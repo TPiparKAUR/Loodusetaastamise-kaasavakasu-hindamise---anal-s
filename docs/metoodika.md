@@ -193,7 +193,7 @@ Kehtivus on sama mis plokitabelis.
 ### 6.2 Tundlikkus
 
 `oks.analysis.sensitivity` kordab analüüsi teiste klastri suurustega (5 ja 20 km) ja minimaalse alaga (0,25 ja 4 ha).
-Tulemused on `data/tulemused/tundlikkus.csv` ja kokkuvõte `docs/tulemused.md` § 6: paaritatud olulistest hinnangutest säilis oluliseks sama märgiga 95–100 % (ökosüsteem) ja 89–99 % (alamökosüsteem; 4 ha puhul langeb osa hinnanguid andmete puudumise tõttu välja); Δ astakkorrelatsioon põhijooksuga ≥ 0,91.
+Tulemused on `data/tulemused/tundlikkus.csv` ja kokkuvõte `docs/tulemused.md` § 6: paaritatud olulistest hinnangutest säilis oluliseks sama märgiga 96–100 % (ökosüsteem) ja 88–99 % (alamökosüsteem; 4 ha puhul langeb osa hinnanguid andmete puudumise tõttu välja); Δ astakkorrelatsioon põhijooksuga ≥ 0,89.
 
 ## 7. Jämedad ruudustikud: segumudel (uuriv)
 

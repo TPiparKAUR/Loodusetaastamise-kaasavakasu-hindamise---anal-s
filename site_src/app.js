@@ -24,7 +24,7 @@
     if (a >= 10) return nf(sig ? 1 : 1).format(x);
     if (a >= 1) return nf(2).format(x);
     if (a >= 0.01) return nf(3).format(x);
-    return x.toExponential(1);
+    return x.toLocaleString('et-EE', { maximumSignificantDigits: 2, maximumFractionDigits: 8 });
   }
   const pct = (r, d = 0) => (r === null || r === undefined || !Number.isFinite(r) ? '–' : `${r > 0 ? '+' : ''}${nf(d).format(r * 100)} %`);
   const sgn = (x) => (x === null || x === undefined || !Number.isFinite(x) ? '–' : `${x > 0 ? '+' : ''}${fmt(x)}`);
@@ -981,11 +981,14 @@
     const M = D.meta, p = M.parameetrid, card = h('section', { class: 'card prose' }, root);
     const P = (t) => h('p', {}, card, t);
     h('h2', {}, card, 'Meetod lühidalt');
-    P('Täielik kirjeldus on repositooriumi failis docs/metoodika.md. Siin on olulisim.');
+    P('Täielik kirjeldus on repositooriumi failis docs/metoodika.md ja nõuete täitmine failis docs/lahteulesanne.md. Siin on olulisim.');
     h('h3', {}, card, 'Seisund');
     P('Seisundiklassid pärinevad baaskaardilt (2022, 5 m): „seisund_uldine” 1 = hea, 2 = keskmine, 3 = vilets. Vastavus algsetele klassidele (A–F) on iga ökosüsteemi sees erinev ja tuletati täisresolutsiooni ristiksist (iga detailne kood kaardistub täpselt ühele seisundile).');
     const t = h('table', {}, card); const hr = h('tr', {}, h('thead', {}, t)); for (const c of ['Ökosüsteem', 'hea', 'keskmine', 'vilets']) h('th', {}, hr, c);
     for (const r of [['Rohumaad', 'A, B', 'C', 'D1, D2'], ['Sood', 'A1, A2', 'B1, B2', 'C1, C2, D, E'], ['Metsad', 'A', 'A-B, A-C, B, C', 'D, E, F'], ['Põllumaad', 'A', 'B', 'C, D']]) { const tr = h('tr', {}, t); for (const c of r) h('td', {}, tr, c); }
+    h('h3', {}, card, 'Tulemustabel (lähtekas): keskväärtus tüübi ja seisundi kaupa');
+    P('Tulemustabeli väärtus on teenuse pikslite aritmeetiline keskmine kogu ökosüsteemitüübi ja seisundiklassi kehtiva pindala kohta, nullid kaasa arvatud (näiteks kui 100 ha palumetsas kasvavad mustikad 25 hektaril, jagatakse mustikasaak 100 hektariga). Kihtides, kus tabelis deklareeritud NoData on 0, on 0 kehtiv null; ohusaaste puhverdamisel ka 255 (tabeli märkus). Pindala on baaskaardi pindala. Suure ökosüsteemi väärtus on pikslite järgi kaalutud keskmine; „Asustus ja muu“ ei liideta.');
+    P('Märked: „ei paku“ = nullist erinevaid piksleid alla 1 % kehtivatest (lähtekasu „väga-väga vähe“; lävi on meie valik); „–“ = kehtivaid piksleid alla 5 % klassist; kaldkiri ja kollane = osaline kate; † definitsiooniline seos seisundiga; ‡ uuriv segumudel. Pikslitaseme SD on kirjeldav, mitte keskmise ebakindlus.');
     h('h3', {}, card, 'Hinnang ja olulisus');
     P(`Muutus Δ = parema seisundi keskmine − halvema seisundi keskmine. Paaritatud hinnang võrdleb seisundeid, mis esinevad samas 1 km plokis ja samas alamökosüsteemis (kummaski vähemalt ${p.min_area_ha} ha), kaaludes ploki n_a·n_b/(n_a+n_b) järgi. See kontrollib asukoha ja alamökosüsteemi koosseisu mõju. Paaritamata hinnang on kõigi pikslite keskmiste vahe.`);
     P(`Olulisus: ${nf(0).format(p.cluster_blocks)} × ${nf(0).format(p.cluster_blocks)} km klastrite bootstrap (${nf(0).format(p.n_boot)} kordust) arvestab ruumilist autokorrelatsiooni; kahepoolsed p-väärtused korrigeeritakse Benjamini–Hochbergi meetodiga (FDR) eraldi ökosüsteemi ja alamökosüsteemi taseme jaoks (α = ${p.alpha}). Hinnang on „oluline”, kui q < ${p.alpha} ja vähemalt ${p.min_strata} paari ning ${p.min_clusters} klastrit.`);

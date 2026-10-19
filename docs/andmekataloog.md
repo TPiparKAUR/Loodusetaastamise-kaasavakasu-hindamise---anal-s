@@ -2,7 +2,7 @@
 
 Genereeritud `oks.report.write_catalogue`-ga failidest `alusmaterjalid/metaandmed/layer_definition_checked_vrs2.xlsx` ja `data/arhiiv_failid.csv`.
 
-Ametlikus tabelis on 136 kihti, neist `eval = TRUE`: 32 (1 baaskaart + 31 teenust).
+Ametlikus tabelis on 136 kihti, neist `eval = TRUE`: 32 (1 baaskaart + 35 teenust).
 
 ## Analüüsitavad teenused (`eval = TRUE`)
 
@@ -11,8 +11,12 @@ Ametlikus tabelis on 136 kihti, neist `eval = TRUE`: 32 (1 baaskaart + 31 teenus
 | Bioloogiline tõrje | Kahjuritõrje potentsiaalne kulu | biotorje_kahjuritorje_vahenemine | puudub |  |  | rahaline | – | ELME2 | puudub arhiivis |
 | Bioloogiline tõrje | Kahjuritõrje vajaduse vähenemine | biotorje_2022 | vektor |  |  | biofüüsikaline | arvatavasti % (väli pestits_vahenemine) | ELME2 | Bioloogiline_torje/biotorje_2022.gpkg |
 | Elupaikade säilitamine | Elupaikade säilitamine looduslikele liikidele | elupaigahuve_pakkumine_2022_10m | raster | 10 | Järjestus | muu | indeks 0-10 | ELME2 | Elupaigahuve/elupaigahuve_pakkumine_2022_10m.tif |
+| Elupaikade säilitamine | Loodusmaastiku sidusus 1 km raadiuses | sidusus_1km_2022_10m | raster | 10 | Pidev | muu | osakaal 0-100 (tõlgendus kinnitada) | ELME2 | Sidusus/sidusus_1km_2022_10m.tif |
 | Globaalne kliimaregulatsioon | Metsa puitsesse biomassi seotud süsiniku varu | puitne_biomass_c_t_ha_kogu_eesti_sum_2022_5m | raster | 5 | Pidev | biofüüsikaline | t C/ha | ELME2 | Globaalne_kliimaregulatsioon/puitne_biomass_c_t_ha_kogu_eesti_sum_2022_5m.tif |
+| Globaalne kliimaregulatsioon | Metsa puitsesse biomassi seotud süsiniku varu rahaline väärtus (aasta keskmine ETS börsihind) | puitne_biomass_c_eur_ha_ets_borsihind_kogu_eesti_sum_2022_5m | raster | 5 | Pidev | rahaline | EUR/ha | ELME2 | Globaalne_kliimaregulatsioon/puitne_biomass_c_eur_ha_ets_borsihind_kogu_eesti_sum_2022_5m.tif |
 | Globaalne kliimaregulatsioon | Mulla orgaanilise süsiniku varu | c_tonn_per_ha_final_2022_10m | raster | 10 | Pidev | biofüüsikaline | t C/ha | ELME2 | Globaalne_kliimaregulatsioon/c_tonn_per_ha_final_2022_10m.tif |
+| Globaalne kliimaregulatsioon | Mulla orgaanilise süsiniku varu rahaline väärtus (aasta keskmine ETS börsihind) | mullasusinik_aasta_keskmine_2022_10m | raster | 10 | Pidev | rahaline | EUR/ha | ELME2 | Globaalne_kliimaregulatsioon/mullasusinik_aasta_keskmine_2022_10m.tif |
+| Globaalne kliimaregulatsioon | Mulla orgaanilise süsiniku varu rahaline väärtus (sotsiaalse kulu hind) | mullasusinik_aasta_sotsiaalne_kulu_2022_10m | raster | 10 | Pidev | rahaline | EUR/ha | ELME2 | Globaalne_kliimaregulatsioon/mullasusinik_aasta_sotsiaalne_kulu_2022_10m.tif |
 | Globaalne kliimaregulatsioon | Niidu puitsesse biomassi seotud süsiniku varu | puitne_biomass_c_t_ha_niit_sum_2022_5m | raster | 5 | Pidev | biofüüsikaline | t C/ha | ELME2 | Globaalne_kliimaregulatsioon/puitne_biomass_c_t_ha_niit_sum_2022_5m.tif |
 | Globaalne kliimaregulatsioon | Soo puitsesse biomassi seotud süsiniku varu | puitne_biomass_c_t_ha_soo_sum_2022_5m | raster | 5 | Pidev | biofüüsikaline | t C/ha | ELME2 | Globaalne_kliimaregulatsioon/puitne_biomass_c_t_ha_soo_sum_2022_5m.tif |
 | Kultuurilised hüved | Loodusturismi hüve rahaline väärtus tarbijakulude alusel | loodusturism_eur_ha_2022_5m | raster | 5 | Järjestus | rahaline | EUR/ha | ELME2 | Kultuurilised_huved/loodusturism_eur_ha_2022_5m.tif |
@@ -45,7 +49,11 @@ Ametlikus tabelis on 136 kihti, neist `eval = TRUE`: 32 (1 baaskaart + 31 teenus
 * **Kahjuritõrje potentsiaalne kulu** (`biotorje_kahjuritorje_vahenemine`): Tabeli märkus: Kasutada ühte. Eraldi käsitlus
 * **Kahjuritõrje vajaduse vähenemine** (`biotorje_2022`): Kahjuritõrje vajaduse vähenemine põllumassiivil; arvutatud maastikuelementide katvusest ja põllu seisundiklassist (seos seisundiga on definitsiooniline). Tabeli märkus: 'Kasutada ühte. Eraldi käsitlus'; pestitshind_ha (EUR/ha) on sama muutuja rahas · Tabeli märkus: Kasutada ühte. Eraldi käsitlus
 * **Elupaikade säilitamine looduslikele liikidele** (`elupaigahuve_pakkumine_2022_10m`): 0 madal, 10 kõrge
+* **Loodusmaastiku sidusus 1 km raadiuses** (`sidusus_1km_2022_10m`): Loodusmaastiku sidusus 1 km raadiuses: heas seisundis looduslike ökosüsteemide osakaal maismaapikslitest 1 km raadiuses. Lähtekas: 'kasutame ühte sidusust (nt 1 km raadiusega loodusmaastik?)'; raadius ja skaala kinnitada. Tabeli märkus: 'Võib vajada teistsugust lähenemist'. Seos seisundiga on osaliselt definitsiooniline (sidusus arvutatud heas seisundis ökosüsteemide osakaalust) · Tabeli märkus: Võib vajada teistsugust lähenemist
+* **Metsa puitsesse biomassi seotud süsiniku varu rahaline väärtus (aasta keskmine ETS börsihind)** (`puitne_biomass_c_eur_ha_ets_borsihind_kogu_eesti_sum_2022_5m`): Metsa puitse biomassi süsinikuvaru väärtus (varu, mitte aastane voog), ETS 80,68 EUR/t CO2. Lisakiht lähtekasu alusel
 * **Mulla orgaanilise süsiniku varu** (`c_tonn_per_ha_final_2022_10m`): Mulla orgaanilise süsiniku varu; suuremad veekogud, linnad ja >6 m teed eemaldatud
+* **Mulla orgaanilise süsiniku varu rahaline väärtus (aasta keskmine ETS börsihind)** (`mullasusinik_aasta_keskmine_2022_10m`): Mulla süsinikuvaru väärtus (varu, mitte aastane voog), ETS 2022 keskmine börsihind 80,68 EUR/t CO2; tabeli märkus: 'Hind kokku leppida'. Lisakiht lähtekasu alusel · Tabeli märkus: Hind kokku leppida
+* **Mulla orgaanilise süsiniku varu rahaline väärtus (sotsiaalse kulu hind)** (`mullasusinik_aasta_sotsiaalne_kulu_2022_10m`): Mulla süsinikuvaru väärtus (varu, mitte aastane voog), sotsiaalse kulu hind 169,77 EUR/t CO2 (Rennert et al. 2022). Lisakiht lähtekasu alusel
 * **Niidu puitsesse biomassi seotud süsiniku varu** (`puitne_biomass_c_t_ha_niit_sum_2022_5m`): Tabeli märkus: 'Üle otsustada. Sõltub kihi metoodika sobivusest' · Tabeli märkus: Üle otsustada. Sõltub kihi metoodika sobivusest
 * **Loodusturismi hüve rahaline väärtus tarbijakulude alusel** (`loodusturism_eur_ha_2022_5m`): 637 mln EUR jaotatud kaalude alusel; astmeline (11 taset)
 * **Loodusturismi hüve – looduslikkuse suhteline väärtus loodusobjektina** (`loodusturism_kaalsum_2022_5m`): Ekspertkaalude summa

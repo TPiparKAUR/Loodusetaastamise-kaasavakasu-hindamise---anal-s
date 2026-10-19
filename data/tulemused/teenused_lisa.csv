@@ -1,6 +1,9 @@
 id,meetod,markus
 biotorje_2022,paaritatud (põllumassiivid rasteriseeritud 10 m),""
 elupaigahuve_pakkumine_2022_10m,paaritatud (plokk × alamökosüsteem),""
+mullasusinik_aasta_keskmine_2022_10m,paaritatud (plokk × alamökosüsteem),""
+mullasusinik_aasta_sotsiaalne_kulu_2022_10m,paaritatud (plokk × alamökosüsteem),""
+puitne_biomass_c_eur_ha_ets_borsihind_kogu_eesti_sum_2022_5m,paaritatud (plokk × alamökosüsteem),""
 puitne_biomass_c_t_ha_kogu_eesti_sum_2022_5m,paaritatud (plokk × alamökosüsteem),""
 c_tonn_per_ha_final_2022_10m,paaritatud (plokk × alamökosüsteem),""
 puitne_biomass_c_t_ha_niit_sum_2022_5m,paaritatud (plokk × alamökosüsteem),""
@@ -24,6 +27,7 @@ vee_reguleerimisvoime_vol_ha_linnalised_teed_veekogud_2022_10m,paaritatud (plokk
 vee_reguleerimisvoime_eur_ha_linnalised_teed_veekogud_2022_10m,paaritatud (plokk × alamökosüsteem),""
 erosioon_c_kg_ha_a_2022_10m,paaritatud (plokk × alamökosüsteem),""
 erosioon_p_eur_ha_a_2022_10m,paaritatud (plokk × alamökosüsteem),""
+sidusus_1km_2022_10m,paaritatud (plokk × alamökosüsteem),""
 toiduteenus_2022,paaritatud (põllumassiivid rasteriseeritud 10 m),""
 okosusteemide_tugi_tolmeldajatele_2022_10m,paaritatud (plokk × alamökosüsteem),""
 lamm_grd1000_am_drained_2022,segumudel (uuriv),"1 km ruudustik, segumudel"

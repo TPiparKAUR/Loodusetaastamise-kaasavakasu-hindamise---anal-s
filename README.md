@@ -46,7 +46,7 @@ git-remote'i saab uuendada käsuga `git remote set-url origin <uus-url>`. Sait k
 
 ```bash
 uv sync                                  # Python 3.12, uv
-uv run pytest -q                         # 59 testi (sünteetilised andmed teadaoleva vastusega)
+uv run pytest -q                         # 58 testi (sünteetilised andmed teadaoleva vastusega)
 uv run ruff check . && uv run mypy src
 
 # Täielik uuesti arvutus (vajab ligipääsu arhiivi hostile; ~ 40 min, laeb ~ 25 GB, kustutab toorfailid)
