@@ -172,7 +172,7 @@ Samad sammud 1–6 (§ 3.1) annavad plokitabeli; edasi [stats.py:192-422](https:
 * **Excel `andmetabel_kaasneva_kasu.xlsx`** ([andmetabel.py:190-456](https://github.com/TPiparKAUR/kaasavakasu/blob/542ce57bc2cb41f93f5409215e71b4e71681ed8a/src/oks/andmetabel.py#L190-L456)): lehed „Tüübid × seisund“, „Suured ökosüsteemid“ (sama keskväärtus), pikad tabelid (`kate`, `esineb_osa`, `staatus`), „Tõendusbaas (Δ)“ (paaritatud Δ).
 * **Tõendusbaas / kvalitatiivne [K kaasnev_export.py:233-283]:** suund = Δ märk × indikaatori `suund`; tugevus = `strength(rel)`: < 10 % nõrk, < 50 % keskmine, muidu tugev (`STRENGTH_BREAKS`; **[J]** lävendid on kokkuleppelised).
 * **`docs/tulemused.md`:** genereeritud `report.write_results` poolt (arve ei kirjutata käsitsi).
-* **Segumudel (uuriv):** 930 m ja 1 km kihtidele on „keskmine“ regressioonikoefitsient (OLS; **[M]** metoodika.md:199-207, mudelit ([mixing.py:91-147](https://github.com/TPiparKAUR/kaasavakasu/blob/542ce57bc2cb41f93f5409215e71b4e71681ed8a/src/oks/mixing.py#L91-L147)) ei ole auditis üle vaadatud), mitte pikslite keskmine; lehel märgitud ‡.
+* **Segumudel (uuriv):** 930 m ja 1 km kihtidele on „keskmine“ regressioonikoefitsient (OLS; **[M]** metoodika.md:199-207; mudelit [mixing.py:91-147](https://github.com/TPiparKAUR/kaasavakasu/blob/542ce57bc2cb41f93f5409215e71b4e71681ed8a/src/oks/mixing.py#L91-L147) ei ole auditis üle vaadatud), mitte pikslite keskmine; lehel märgitud ‡.
 
 ## 6. Valideerimine ja lahknevuste analüüs
 
