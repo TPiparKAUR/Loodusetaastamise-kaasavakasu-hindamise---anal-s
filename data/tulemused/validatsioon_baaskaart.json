@@ -1,0 +1,16 @@
+{
+  "koode rastris": 264,
+  "koode klassid.parquet": 264,
+  "koode mitme seisundiga": 0,
+  "n_pix lahknevusi": 0,
+  "uld lahknevusi": 0,
+  "pindala kokku km2 (rastrist)": 43467.176325,
+  "pindala kokku km2 (klassid.parquet)": 43467.176325,
+  "pindala seisundi (uld) kaupa km2": {
+    "1": 4922.91745,
+    "2": 17422.8818,
+    "3": 16637.413125,
+    "4": 2226.0935,
+    "5": 2257.87045
+  }
+}

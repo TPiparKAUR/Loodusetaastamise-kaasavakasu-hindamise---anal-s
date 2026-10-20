@@ -1,0 +1,34 @@
+{
+  "V8 tulemustabel": {
+    "ridu veebis": 116,
+    "arvulisi lahtreid": 2746,
+    "tekstilisi (ei paku / –)": 850,
+    "lahknevusi": 0,
+    "näited": []
+  },
+  "V9 stsenaarium": {
+    "üksus": "Salumets",
+    "seisundid": "vilets→hea",
+    "pindala ha": 1000.0,
+    "kontrollitud ridu": 10,
+    "lahknevusi": 0,
+    "näited": []
+  },
+  "JS vead brauseris": [],
+  "V10 Excel (Tüübid × seisund)": {
+    "ridu": 152,
+    "arvulisi lahtreid": 3599,
+    "lahknevusi": 0,
+    "lehed": [
+      "Loe mind",
+      "Tüübid × seisund",
+      "Suured ökosüsteemid",
+      "Pikk tabel (tüübid)",
+      "Pikk tabel (suured)",
+      "Teenuste kirjeldus",
+      "Kvalitatiivne (ettepanek)",
+      "Tõendusbaas (Δ)",
+      "Tegevuste koondtabel (mall)"
+    ]
+  }
+}

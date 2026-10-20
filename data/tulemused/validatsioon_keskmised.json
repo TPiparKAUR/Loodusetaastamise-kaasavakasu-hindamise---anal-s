@@ -1,0 +1,97 @@
+{
+  "V1 paaritamata (plokitabel vs lahtrid.parquet)": {
+    "layers": 31,
+    "cells": 3772,
+    "missing": 0,
+    "n_mismatch": 0,
+    "max_rel_err": 1.4198987411450647e-14,
+    "worst": "seened_saagikus_2020_10m {'unit_level': 'okosusteem', 'unit_code': 3, 'seisund': 'keskmine', 'n': 149995639, 'mean': 36.53050616036008, 'unit_level_right': 'okosusteem', 'unit_code_right': 3, 'seisund_right': 'keskmine', 'n2': 149995639, 'mean2': 36.530506160359565}"
+  },
+  "V2 paaritatud Δ (sõltumatu stratifitseerimine vs paarid.parquet)": {
+    "rows_with_delta_m (blokitabelist, ilma NaN-ita)": 3294,
+    "rows NaN (stratume pole, n_strata=0)": 367,
+    "segumudeli read (ei ole plokitabelit; välja jäetud)": 36,
+    "recomputed": 3294,
+    "unmatched_in_recompute": 0,
+    "n_strata_mismatch": 0,
+    "max_abs_diff": 1.1641532182693481e-10,
+    "max_rel_err": 2.3595244381084122e-14
+  },
+  "V3 tüüp x seisund (klassitabel vs kaasnev_tuup_seisund.parquet)": {
+    "cells": 4513,
+    "n_mismatch": 0,
+    "max_rel_err": 0.0,
+    "worst": null,
+    "area_mismatch": 0,
+    "area_rows": 152
+  },
+  "V4 ökosüsteemi keskmine: plokitabel vs klassitabel": {
+    "cells": 363,
+    "max_rel_err": 2.319297516131923e-15,
+    "cells_over_1e-9": 0,
+    "worst": []
+  },
+  "V5 veebilehe JSON": {
+    "kaasnev.json tuubid: cells": 4513,
+    "kaasnev.json tuubid: mismatches (>5e-5 rel)": 0,
+    "kaasnev.json suured: cells (v.a. segumudel)": 1152,
+    "kaasnev.json suured: mismatches": 0,
+    "lahtrid.json: rows": 3808,
+    "lahtrid.json: mismatches": 0
+  },
+  "V6 loogika": {
+    "rida kus kehtiv pindala > baaskaardi pindala x 1,02": 0,
+    "rida kus kate > 1": 0,
+    "rida kus keskmine < 0 (kihid ilma negatiivsete väärtusteta)": 0,
+    "väljaspool deklareeritud vahemikku": {
+      "elupaigahuve_pakkumine_2022_10m": 0,
+      "okosusteemide_tugi_tolmeldajatele_2022_10m": 0,
+      "ohusaaste_puhverdusvoime_2022_5m": 0,
+      "sidusus_1km_2022_10m": 0,
+      "virgestuse_koondvaartus_2022_5m": 0
+    },
+    "hinna ja koguse suhted": {
+      "mulla C: ETS EUR/ha ÷ t C/ha": {
+        "oodatud": 296.09560000000005,
+        "min": 296.0955854251716,
+        "max": 296.0956167126678,
+        "n": 12
+      },
+      "mulla C: sotsiaalne kulu EUR/ha ÷ t C/ha": {
+        "oodatud": 623.0559000000001,
+        "min": 623.0558909070896,
+        "max": 623.055918579812,
+        "n": 12
+      },
+      "seened: EUR/ha ÷ kg/ha": {
+        "oodatud": 4.5,
+        "min": 3.2000247780612945,
+        "max": 4.481178998181829,
+        "n": 12
+      },
+      "mustikad/pohlad: EUR/ha ÷ kg/ha": {
+        "oodatud": 2.5,
+        "min": 2.5007724109520515,
+        "max": 2.50124531904475,
+        "n": 12
+      }
+    }
+  },
+  "V7 paaritatud vs paaritamata": {
+    "okosusteem": {
+      "võrreldavaid": 109,
+      "märk erineb": 13,
+      "mediaan |Δm−Δu| / |Δu|": 0.8596224169666266
+    },
+    "alam": {
+      "võrreldavaid": 828,
+      "märk erineb": 110,
+      "mediaan |Δm−Δu| / |Δu|": 0.4904425597135261
+    },
+    "paare kus mõlemad keskmised = 0 (POSITIVE_MIN filtrit analüüsis ei ole)": {
+      "rida": 273,
+      "neist enough_m": 231,
+      "kihte": 7
+    }
+  }
+}
